@@ -90,8 +90,6 @@ def get_database_connection(database, get_connection_url=False):
         print(f"Error connecting to the MariaDB Server: {e}")
     return conn 
 
-%load_ext sql
-
 def create_database(db_name):
   # first connect to our MariaDB server
   connect_string = get_database_connection(db_name, True)
