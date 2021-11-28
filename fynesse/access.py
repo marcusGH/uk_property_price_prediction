@@ -14,20 +14,20 @@ from ipywidgets import interact_manual, Text, Password
 from shapely.geometry import Polygon, LineString, Point
 
 import geopandas as gpd
+import datetime
 import io
-import matplotlib.pyplot as plt
 import numpy as np
 import osmnx as ox
 import pandas as pd
 import pymysql
-import seaborn as sbn
 import sys
 import traceback
 import urllib.request
-import warnings
-import yaml
 import yaml
 import zipfile
+import warnings
+
+warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
 
 """
  Place commands in this file to access the data electronically. Don't remove
@@ -36,9 +36,12 @@ import zipfile
  the legal side also think about the ethical issues around this data.
 """
 
-"""### Database set up"""
+"""
+################################# Database set up ############################
+"""
 
 # Commented out IPython magic to ensure Python compatibility.
+
 # Database set up and connection utility functions
 def get_and_store_credentials():
   @interact_manual(username=Text(description="Username:"), 
@@ -103,7 +106,9 @@ def create_database(db_name):
   #
   # %sql USE `$db_name`
 
-"""### Database queries"""
+"""
+################################# Database queries ############################
+"""
 
 # database connect and query utility functions
 def get_database_connection(database, get_connection_url=False):
@@ -251,11 +256,6 @@ def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRang
   if prices_coordinates_range_query_fast.all_postcodes_df is None:
     prices_coordinates_range_query_fast.all_postcodes_df = \
       db_select("SELECT postcode, longitude, lattitude FROM postcode_data")
-  # print(f"Found postcodes")
-  # postcodes_df = db_select((
-  #     f"SELECT postcode FROM postcode_data WHERE "
-  #     f"longitude > {minLon} AND longitude < {maxLon} "
-  #     f"AND lattitude > {minLat} AND lattitude < {maxLat}"))
 
   # filter out postcodes outside bounding box
   all_pd = prices_coordinates_range_query_fast.all_postcodes_df
@@ -265,23 +265,23 @@ def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRang
       (all_pd['longitude'] < maxLon) &
       (all_pd['lattitude'] < maxLat)
     ])['postcode'])
-  # print(f"There are {len(postcode_list)} postcodes in the area")
-  # postcode_list.append('AL1 1AJ')
-  # quote all the postcodes
+
   postcodes = list(map(lambda x: f"'{x}'", postcode_list))
   if len(postcodes) == 0:
     raise Exception(f"There are no postcodes within the bounding box ({minLon}, {maxLon}, {minLat}, {maxLat})")
   cond_sql = f" AND pp.postcode IN (" + ",".join(postcodes) + f")"
   if yearRange is not None:
       cond_sql = f"{cond_sql} AND pp.date_of_transfer BETWEEN '{yearRange[0]}-01-01' AND '{yearRange[1]}-12-30'"
-  # print(inner_join_sql_query() + cond_sql)
   return db_select(inner_join_sql_query() + cond_sql)
+
 # only compute this dataframe on first call
 prices_coordinates_range_query_fast.all_postcodes_df = None
 
 # prices_coordinates_range_query_fast.all_postcodes_df = temp
 
-"""### Schema set up"""
+"""
+################################# Schema setup ###############################
+"""
 
 # schema set up for `pp_data`
 def create_pp_data_table():
@@ -385,9 +385,12 @@ def create_postcode_data_table():
   for query in index_sql_queries:
     db_query(query)
 
-"""### Data import"""
+"""
+################################# Data import ################################
+"""
 
 # Commented out IPython magic to ensure Python compatibility.
+
 # utility functions for downloading csv datasets
 def upload_csv(csv_file, table_name):
   quote = '"'
@@ -402,8 +405,10 @@ def upload_csv(csv_file, table_name):
   db_query(upload_sql)
   print(f"Uploaded file {csv_file} to database table `{table_name}`")
 
+  print("See the source code. I couldn't get %rm and %load_ext sql to work in my package...")
+
   # delete the file
-  deletion_errors = %rm $csv_file
+  deletion_errors = None # %rm $csv_file
   if deletion_errors is None:
     print(f"Successfully removed file {csv_file}")
   else:
@@ -439,19 +444,27 @@ def download_and_upload_postcode_data():
     zip_ref.extractall()
     upload_csv("open_postcode_geo.csv", "postcode_data")
   # delete the zip file
+  print("See the source code. I couldn't get %rm and %load_ext sql to work in my package...")
 #   %rm $file_name
 
-"""### OSM utilities"""
+"""
+################## Open Street Map (OSM) Access functions ###############
+"""
 
 # geometry warnings when doing `.distance` with geographical CRS coordinates:
 #   We can safely ignore this since the distance calculations are between
 #   relatively close points, so the earth's curvature is minimal
-warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
+# warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
 
-def km_to_crs(dist_km): # 3 args, lat, width, and height
+def km_to_crs(dist_km, latitude=53.71, longitude=-2.03):
+  """
+  ~~Takes a distance in kilometers and creates a bounding box in EPSG:4326 latitude and~~
+  ~~longitude coordinates. Returns a tuple of four elements:~~
+  ~~north south west east~~
+  """
   return (dist_km / 40075) * 360
-  # h = height / 110.574
-  # w = weidth / (math.cos(lat * math.pi/180) * 111.320))
+  h = dist_km / 110.574
+  w = dist_km / (math.cos(latitutde * math.pi/180) * 111.320))
 
 def crs_to_km(dist_crs): # two args, lat and lon
   return (dist_crs / 360) * 40075
@@ -518,10 +531,28 @@ def make_geodataframe(df):
   gdf.crs = "EPSG:4326"
   return gdf
 
-# Sample function
-def data():
-  """Read the data from the web or local file, returning structured format
-  such as a data frame"""
-  raise NotImplementedError
+def point_to_bounding_box(longitude, latitude, size):
+  return {
+      "minLongitude" : longitude - size/2,
+      "maxLongitude" : longitude + size/2,
+      "minLatitude"  : latitude  - size/2,
+      "maxLatitude"  : latitude  + size/2
+  }
+def recover_df_from_file(filename, upload_required=True):
+  """
+  There is some strange things happening when saving
+  a gdf as csv and uploading it, so I've abstracted
+  away the task of fixing this
+  """
+  if upload_required:
+    files.upload()
+  df = pd.read_csv(filename)
+  if 'geometry' in df:
+    df.drop(columns=['geometry'])
+    df = make_geodataframe(df)
+  if 'date_of_transfer' in df:
+    df['date_of_transfer'] = pd.to_datetime(df['date_of_transfer']).dt.date
+
+  return df
 
 # vim: shiftwidth=2 tabstop=2

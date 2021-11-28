@@ -2,3 +2,14 @@
 data_url: https://raw.githubusercontent.com/lawrennd/datasets_mirror/main/
 priced_paid_data_url: http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-{}-part{}.cs
 postcode_data_url: https://www.getthedata.com/downloads/open_postcode_geo.csv.zip
+
+# some locations
+
+# Cambridge
+cambridge: !!python/tuple [52.20033681513002, 0.13547989207614686]
+# outskirts of Birmingham
+outside_birmingham: !!python/tuple [52.398692841484944, -1.7927235814784612]
+# relatively remote location north of Shrewsbury
+remote_location: !!python/tuple [52.80527498134398, -2.6132228961372173]
+# middle of major city, London
+london: !!python/tuple [51.48986737242836, -0.08784983147311816]

@@ -2,6 +2,12 @@ from .config import *
 
 import .access
 
+from matplotlib.colors import LogNorm
+
+import matplotlib.pyplot as plt
+import seaborn as sbn
+import warnings
+
 """These are the types of import we might expect in this file
 import pandas
 import bokeh
@@ -9,7 +15,83 @@ import matplotlib.pyplot as plt
 import sklearn.decomposition as decomposition
 import sklearn.feature_extraction"""
 
-"""Place commands in this file to assess the data you have downloaded. How are missing values encoded, how are outliers encoded? What do columns represent, makes rure they are correctly labeled. How is the data indexed. Crete visualisation routines to assess the data (e.g. in bokeh). Ensure that date formats are correct and correctly timezoned."""
+warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
+
+"""Place commands in this file to assess the data you have downloaded. How are
+missing values encoded, how are outliers encoded? What do columns represent,
+makes rure they are correctly labeled. How is the data indexed. Crete
+visualisation routines to assess the data (e.g. in bokeh). Ensure that date
+formats are correct and correctly timezoned."""
+
+def plot_geographical_heatmap(ax, gdf, val, bins, transform='mean', useLog=False):
+  if 'geometry' not in gdf and ('longitude' not in gdf or 'latitude' not in gdf):
+    raise Exception('The provided dataframe needs some column indicating positions')
+
+  gdf_copy = gpd.GeoDataFrame(gdf.copy(deep=True))
+
+  if 'longitude' not in gdf_copy or 'latitude' not in gdf_copy:
+    gdf_copy['longitude'] = gdf_copy.centroid.map(lambda p : p.x)
+    gdf_copy['latitude'] = gdf_copy.centroid.map(lambda p : p.y)
+
+
+  bin_size_x = (np.max(gdf_copy.longitude) - np.min(gdf_copy.longitude)) / bins
+  bin_size_y = (np.max(gdf_copy.latitude) - np.min(gdf_copy.latitude))  / bins
+
+  # assign quantile ID, and then scale back up to get accurate ticks
+  gdf_copy['bin_x'] =  (((gdf_copy['longitude']) / bin_size_x).astype(int).astype(float) * float(bin_size_x)).round(decimals=2)
+  gdf_copy['bin_y'] =  (((gdf_copy['latitude']) / bin_size_y).astype(int).astype(float) * float(bin_size_y)).round(decimals=2)
+
+  # mean value of specified column
+  gdf_copy['bin_value'] = gdf_copy.groupby(['bin_x', 'bin_y'])[val].transform(transform)
+
+  piv = gdf_copy.drop_duplicates(subset=['bin_x', 'bin_y']).pivot(index='bin_y', columns='bin_x', values='bin_value')
+  if useLog:
+    sbn.heatmap(piv, ax=ax, fmt='g', cmap='viridis', norm=LogNorm())
+  else:
+    sbn.heatmap(piv, ax=ax, fmt='g', cmap='viridis')
+
+  ax.set_xlabel("Longitude")
+  ax.set_ylabel("Latitude")
+
+
+
+def highlight_aboven(n):
+  """
+  Returns a pandas style lambda to
+  highlight the values in a
+  correlation matrix above n
+
+  Usage:
+    my_dataframe.style.apply(highlight_aboven(<int>))
+  """
+  return lambda s, props='': \
+    np.where((s != 1) &
+             (np.abs(s) >= n), props, '')
+
+def highlight_topn(n):
+  """
+  Returns a pandas style lambda to
+  highlight the top n values in a
+  correlation matrix
+
+  Usage:
+    my_dataframe.style.apply(highlight_topn(<int>))
+  """
+  return lambda s, props='': \
+    np.where((s != 1) &
+             (np.abs(s) >= np.partition(np.abs(s.values).flatten(),
+                                        -n-1)[-n-1]), props, '')
+
+
+
+
+
+
+
+
+
+
+
 
 
 def data():
