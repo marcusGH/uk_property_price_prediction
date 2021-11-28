@@ -1,7 +1,5 @@
 from .config import *
 
-import .access
-
 from matplotlib.colors import LogNorm
 
 import matplotlib.pyplot as plt
