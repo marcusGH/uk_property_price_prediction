@@ -463,8 +463,8 @@ def km_to_crs(dist_km, latitude=53.71, longitude=-2.03):
   ~~north south west east~~
   """
   return (dist_km / 40075) * 360
-  h = dist_km / 110.574
-  w = dist_km / (math.cos(latitutde * math.pi/180) * 111.320))
+  # h = dist_km / 110.574
+  # w = dist_km / (math.cos(latitutde * math.pi/180) * 111.320)
 
 def crs_to_km(dist_crs): # two args, lat and lon
   return (dist_crs / 360) * 40075
