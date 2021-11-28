@@ -96,14 +96,14 @@ def create_database(db_name):
   # first connect to our MariaDB server
   connect_string = get_database_connection(db_name, True)
 
-
-  %sql mariadb+pymysql://$connect_string
-  %sql SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
-  %sql SET time_zone = "+00:00";
-  
-  %sql CREATE DATABASE IF NOT EXISTS `$db_name` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
-
-  %sql USE `$db_name`
+  print("See the source code. I couldn't get %sql and %load_ext sql to work in my package...")
+  # %sql mariadb+pymysql://$connect_string
+  # %sql SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+  # %sql SET time_zone = "+00:00";
+  #
+  # %sql CREATE DATABASE IF NOT EXISTS `$db_name` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+  #
+  # %sql USE `$db_name`
 
 """### Database queries"""
 
