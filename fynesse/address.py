@@ -18,6 +18,9 @@ from sklearn.model_selection import train_test_split
 
 import statsmodels.api as sm
 import sklearn.metrics as skm
+import pandas as pd
+import geopandas as gpd
+import numpy as np
 import warnings
 
 warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
