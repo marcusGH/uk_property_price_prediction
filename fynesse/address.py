@@ -150,7 +150,6 @@ def add_feature_from_pois(gdf, pois, **feature_kwargs):
     raise NotImplemented(f"Function {feature_kwargs['func']} is not implemented.")
   return augmented_gdf[feature_kwargs['name']]
 
-build_prices_coordinates_features_dataset.cache = {}
 def build_prices_coordinates_features_dataset(latitude, longitude, date,
                                               property_type, bb_size_km,
                                               pois_bb_size_km, year_range_size,
@@ -206,3 +205,4 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
 
   # return
   return prices_coordinates_gdf, pois
+build_prices_coordinates_features_dataset.cache = {}
