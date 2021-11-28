@@ -1,2 +1,4 @@
 # Place config informatio you want everyone to have here.
 data_url: https://raw.githubusercontent.com/lawrennd/datasets_mirror/main/
+priced_paid_data_url: http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-{}-part{}.cs
+postcode_data_url: https://www.getthedata.com/downloads/open_postcode_geo.csv.zip

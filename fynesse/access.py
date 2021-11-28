@@ -7,21 +7,27 @@ import mongodb
 import sqlite"""
 
 """
- Pip dependencies
-"""
-%pip install ipython-sql
-%pip install PyMySQL
-%load_ext sql
-
-"""
  Python module dependencies
 """
 from google.colab import files
 from ipywidgets import interact_manual, Text, Password
+from shapely.geometry import Polygon, LineString, Point
 
+import geopandas as gpd
+import io
+import matplotlib.pyplot as plt
+import numpy as np
+import osmnx as ox
+import pandas as pd
 import pymysql
+import seaborn as sbn
+import sys
+import traceback
 import urllib.request
+import warnings
 import yaml
+import yaml
+import zipfile
 
 """
  Place commands in this file to access the data electronically. Don't remove
@@ -30,23 +36,27 @@ import yaml
  the legal side also think about the ethical issues around this data.
 """
 
+"""### Database set up"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# Database set up and connection utility functions
 def get_and_store_credentials():
   @interact_manual(username=Text(description="Username:"), 
-      password=Password(description="Password:"))
+                  password=Password(description="Password:"))
   def write_credentials(username, password):
-    with open("credentials.yaml", "w") as file:
-      credentials_dict = {'username': username, 
-          'password': password}
-      yaml.dump(credentials_dict, file)
+      with open("credentials.yaml", "w") as file:
+          credentials_dict = {'username': username, 
+                              'password': password}
+          yaml.dump(credentials_dict, file)
 
 def get_database_details():
   @interact_manual(url=Text(description="Database endpoint:"), 
-      port=Text(description="Port number:"))
+                  port=Text(description="Port number:"))
   def write_credentials(url, port):
-    with open("database-details.yaml", "w") as file:
-      database_details_dict = {'url': url, 
-          'port': port}
-      yaml.dump(database_details_dict, file)
+      with open("database-details.yaml", "w") as file:
+          database_details_dict = {'url': url, 
+                                   'port': port}
+          yaml.dump(database_details_dict, file)
 
 def get_database_connection(database, get_connection_url=False):
   """
@@ -70,30 +80,15 @@ def get_database_connection(database, get_connection_url=False):
     conn = None
     try:
       conn = pymysql.connect(user=username,
-          passwd=password,
-          host=url,
-          port=port,
-          local_infile=1,
-          db=database
-          )
+                        passwd=password,
+                        host=url,
+                        port=port,
+                        local_infile=1,
+                        db=database
+                        )
     except Exception as e:
-      print(f"Error connecting to the MariaDB Server: {e}")
+        print(f"Error connecting to the MariaDB Server: {e}")
     return conn 
-
-def db_query(conn, query, n=None):
-  """
-  Perform specified SQL query using provided connection
-  and limit the result to the first n rows if n is
-  specified.
-  :param conn: the Connection object
-  :param query: The SQL query
-  :param n: number of rows (optional)
-  """
-  cur = conn.cursor()
-  if n is not None:
-    query = f"{query} LIMIT {n}"
-  cur.execute(query)
-  return cur.fetchall()
 
 def create_database(db_name):
   # first connect to our MariaDB server
@@ -102,12 +97,193 @@ def create_database(db_name):
   %sql mariadb+pymysql://$connect_string
   %sql SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
   %sql SET time_zone = "+00:00";
-
+  
   %sql CREATE DATABASE IF NOT EXISTS `$db_name` DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
   %sql USE `$db_name`
 
-def create_pp_data_table(conn):
+"""### Database queries"""
+
+# database connect and query utility functions
+def get_database_connection(database, get_connection_url=False):
+  """
+  If get_connection_url is set to True, returns a string that can
+  be used to connect to the MariaDB server using %sql magic.
+  Otherwise, a connection object is returned.
+  """
+  # read stored information
+  with open("credentials.yaml") as file:
+    credentials = yaml.safe_load(file)
+  with open("database-details.yaml") as file:
+    database_details = yaml.safe_load(file)
+  username = credentials["username"]
+  password = credentials["password"]
+  url = database_details["url"]
+  port = int(database_details["port"])
+  # for use if doing %sql mariadb+pymysql://$return_value
+  if get_connection_url:
+    return f"{username}:{password}@{url}?local_infile=1"
+  else:
+    conn = None
+    try:
+      conn = pymysql.connect(user=username,
+                        passwd=password,
+                        host=url,
+                        port=port,
+                        local_infile=1,
+                        db=database
+                        )
+    except Exception as e:
+        print(f"Error connecting to the MariaDB Server: {e}")
+    return conn 
+
+def db_query(query, database="property_prices"):
+  # conn = get_database_connection("property_prices")
+  conn = get_database_connection(database)
+  try:
+    cur = conn.cursor()
+    cur.execute(query)
+    conn.commit()
+    conn.close()
+  except:
+    conn.close()
+    print("Received interruption and successfully closed the connection")
+
+def db_select(query, database="property_prices", n=None, one_every=None):
+  """
+  Perform specified SQL query using provided connection
+  and limit the result to the first n rows if n is
+  specified. Returns the result in a pandas dataframe.
+  :param conn: the Connection object
+  :param query: The SQL query
+  :param n: number of rows (optional)
+  """
+  conn = get_database_connection(database)
+  cur = conn.cursor()
+  if n is not None:
+    query = f"{query} LIMIT {n}"
+  
+  try:
+    cur.execute(query)
+    # convert result to pandas dataframe
+    column_names = list(map(lambda x: x[0], cur.description))
+    result_sql = cur.fetchall()
+    conn.close()
+    df = pd.DataFrame(columns=column_names, data=result_sql)
+    if 'db_id' in column_names:
+      try:
+        return df.set_index('db_id')
+      except ValueError as e:
+        print(f"Could not set index to 'db_id'\n:{traceback.format_exc()}")
+        return df
+    else:
+      return df
+  except KeyboardInterrupt:
+    conn.close()
+    print("Received interruption and successfully closed the connection")
+  except Exception as e:
+    conn.close()
+    print(traceback.format_exc())
+    print(f"Tried to do query:")
+    print(query)
+  
+def inner_join_sql_query(minYear=None,maxYear=None,minLatitude=None,
+                         maxLatitude=None,minLongitude=None,maxLongitude=None,
+                         oneEvery=None):
+  """
+
+  :param one_very: integer i specifying that only every ith row should
+                   be returned (optional)
+  """
+  query = """
+    SELECT  
+      -- Columns from pp_data
+      pp.county,
+      pp.date_of_transfer,
+      pp.db_id,
+      pp.district,
+      pp.locality,
+      pp.new_build_flag,
+      pp.postcode,
+      pp.price,
+      pp.property_type,
+      pp.tenure_type,
+      pp.town_city,
+      -- Columns from postcode data
+      pd.lattitude AS latitude,
+      pd.longitude,
+      pd.country
+    FROM
+      postcode_data AS pd
+    INNER JOIN
+      pp_data as pp
+    ON
+      pp.postcode = pd.postcode
+    WHERE
+      TRUE
+  """
+  # add constraint on years
+  if minYear is not None:
+    query = f"{query} AND YEAR(pp.date_of_transfer) >= {minYear}"
+  if maxYear is not None:
+    query = f"{query} AND YEAR(pp.date_of_transfer) < {maxYear}"
+  # constraints on longitude
+  if minLongitude is not None:
+    query = f"{query} AND pd.longitude > {minLongitude}"
+  if maxLongitude is not None:
+    query = f"{query} AND pd.longitude < {maxLongitude}"
+  # constraints on latitude
+  if minLatitude is not None:
+    query = f"{query} AND pd.lattitude > {minLatitude}"
+  if maxLatitude is not None:
+    query = f"{query} AND pd.lattitude < {maxLatitude}"
+  # only select some rows
+  if oneEvery is not None:
+    query = f"{query} AND pp.db_id MOD {oneEvery} = 0"
+  
+  return query
+
+def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRange=None):
+  """
+  Optimized query to get rows from a certain geographical range and year range
+  """
+  if prices_coordinates_range_query_fast.all_postcodes_df is None:
+    prices_coordinates_range_query_fast.all_postcodes_df = \
+      db_select("SELECT postcode, longitude, lattitude FROM postcode_data")
+  # print(f"Found postcodes")
+  # postcodes_df = db_select((
+  #     f"SELECT postcode FROM postcode_data WHERE "
+  #     f"longitude > {minLon} AND longitude < {maxLon} "
+  #     f"AND lattitude > {minLat} AND lattitude < {maxLat}"))
+
+  # filter out postcodes outside bounding box
+  all_pd = prices_coordinates_range_query_fast.all_postcodes_df
+  postcode_list = list((all_pd[
+      (all_pd['longitude'] > minLon) &
+      (all_pd['lattitude'] > minLat) &
+      (all_pd['longitude'] < maxLon) &
+      (all_pd['lattitude'] < maxLat)
+    ])['postcode'])
+  # print(f"There are {len(postcode_list)} postcodes in the area")
+  # postcode_list.append('AL1 1AJ')
+  # quote all the postcodes
+  postcodes = list(map(lambda x: f"'{x}'", postcode_list))
+  if len(postcodes) == 0:
+    raise Exception(f"There are no postcodes within the bounding box ({minLon}, {maxLon}, {minLat}, {maxLat})")
+  cond_sql = f" AND pp.postcode IN (" + ",".join(postcodes) + f")"
+  if yearRange is not None:
+      cond_sql = f"{cond_sql} AND pp.date_of_transfer BETWEEN '{yearRange[0]}-01-01' AND '{yearRange[1]}-12-30'"
+  # print(inner_join_sql_query() + cond_sql)
+  return db_select(inner_join_sql_query() + cond_sql)
+# only compute this dataframe on first call
+prices_coordinates_range_query_fast.all_postcodes_df = None
+
+# prices_coordinates_range_query_fast.all_postcodes_df = temp
+
+"""### Schema set up"""
+
+# schema set up for `pp_data`
+def create_pp_data_table():
   # --
   # -- Table structure for table `pp_data`
   # --
@@ -151,89 +327,195 @@ def create_pp_data_table(conn):
     "CREATE INDEX `pp.date` USING HASH "
     "ON `pp_data`  "
     "(date_of_transfer); ")]
+  
+  # run the SQL commands
+  for query in sql_schema_queries:
+    db_query(query)
+  for query in index_sql_queries:
+    db_query(query)
+
+# schema setup for `postcode_data`
+def create_postcode_data_table():
+
+  # --
+  # -- Table structure for table `postcode_data`
+  # --
+  sql_schema_queries = [(
+    "DROP TABLE IF EXISTS `postcode_data`; "),
+    (" "
+    "CREATE TABLE IF NOT EXISTS `postcode_data` ( "
+    "  `postcode` varchar(8) COLLATE utf8_bin NOT NULL, "
+    "  `status` enum('live','terminated') NOT NULL, "
+    "  `usertype` enum('small', 'large') NOT NULL, "
+    "  `easting` int unsigned, "
+    "  `northing` int unsigned, "
+    "  `positional_quality_indicator` int NOT NULL, "
+    "  `country` enum('England', 'Wales', 'Scotland', 'Northern Ireland', 'Channel Islands', 'Isle of Man') NOT NULL, "
+    "  `lattitude` decimal(11,8) NOT NULL, "
+    "  `longitude` decimal(10,8) NOT NULL, "
+    "  `postcode_no_space` tinytext COLLATE utf8_bin NOT NULL, "
+    "  `postcode_fixed_width_seven` varchar(7) COLLATE utf8_bin NOT NULL, "
+    "  `postcode_fixed_width_eight` varchar(8) COLLATE utf8_bin NOT NULL, "
+    "  `postcode_area` varchar(2) COLLATE utf8_bin NOT NULL, "
+    "  `postcode_district` varchar(4) COLLATE utf8_bin NOT NULL, "
+    "  `postcode_sector` varchar(6) COLLATE utf8_bin NOT NULL, "
+    "  `outcode` varchar(4) COLLATE utf8_bin NOT NULL, "
+    "  `incode` varchar(3)  COLLATE utf8_bin NOT NULL, "
+    "  `db_id` bigint(20) unsigned NOT NULL "
+    ") DEFAULT CHARSET=utf8 COLLATE=utf8_bin; ")]
+
+  # --
+  # -- Indexes for table `postcode_data`
+  # --
+  index_sql_queries = [(
+    "ALTER TABLE `postcode_data` "
+    "ADD PRIMARY KEY (`db_id`); "),
+    (" "
+    "ALTER TABLE `postcode_data` "
+    "MODIFY `db_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=1; "),
+    (" "
+    "CREATE INDEX `po.postcode` USING HASH "
+    "ON `postcode_data` "
+    "(postcode); ")]
 
   # run the SQL commands
   for query in sql_schema_queries:
-    db_query(conn, query)
+    db_query(query)
   for query in index_sql_queries:
-    db_query(conn, query)
+    db_query(query)
 
-def download_and_upload_csv(conn, csv_url):
-  # download the file
-  file_name = csv_url.rsplit('/', 1)[-1]
-  urllib.request.urlretrieve(csv_url, file_name)
-  print(f"Downloaded file: {file_name}")
+"""### Data import"""
 
+# Commented out IPython magic to ensure Python compatibility.
+# utility functions for downloading csv datasets
+def upload_csv(csv_file, table_name):
+  quote = '"'
   # upload to database
   upload_sql = (f" "
-      f"LOAD DATA LOCAL INFILE '{file_name}' INTO TABLE `pp_data` "
-      f"FIELDS TERMINATED BY ',' "
-      # note the additional \ to pass '\n' to the SQL command
-      f"LINES STARTING BY '' TERMINATED BY '\\n'; " )
-  db_query(conn, upload_sql)
-  print(f"Uploaded file {file_name} to database table `pp_data`")
+    f"LOAD DATA LOCAL INFILE '{csv_file}' INTO TABLE `{table_name}` "
+    f"FIELDS TERMINATED BY ',' "
+    # NOTE: we add this to specify " as quote character
+    f"OPTIONALLY ENCLOSED BY '{quote}' "
+    # f-strings in python don't interpret \n as newline
+    f"LINES STARTING BY '' TERMINATED BY '\n'; " )
+  db_query(upload_sql)
+  print(f"Uploaded file {csv_file} to database table `{table_name}`")
 
   # delete the file
-  deletion_errors = %rm $file_name
+  deletion_errors = %rm $csv_file
   if deletion_errors is None:
-    print(f"Successfully removed file {file_name}")
+    print(f"Successfully removed file {csv_file}")
   else:
-    print(f"Failed to delete file {file_name}")
+    print(f"Failed to delete file {csv_file}")
 
-def download_and_upload_price_paid_data():
+def download_file_from_url(url):
+  try:
+    file_name = url.rsplit('/', 1)[-1]
+    urllib.request.urlretrieve(url, file_name)
+    print(f'Successfully download file {file_name}.')
+    return file_name
+  except Exception as e:
+    print('The server couldn\'t fulfill the request.')
+    print('Error code: ', e.code)
+    return None
+
+def download_and_upload_price_paid_data(ymin=1995,ymax=2022):
   base_url = "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-{}-part{}.csv"
   parts = [1,2]
-  for y in range(1995, 2022):
+  for y in range(ymin, ymax):
     for p in parts:
+      # get url
       url = base_url.format(y, p)
-      print(url)
+      # download the file
+      file_name = download_file_from_url(url)
+      # upload to database
+      upload_csv(file_name, "pp_data")
 
-def get_database_connection(database, get_connection_url=False):
+def download_and_upload_postcode_data():
+  base_url = "https://www.getthedata.com/downloads/open_postcode_geo.csv.zip"
+  file_name = download_file_from_url(base_url)
+  with zipfile.ZipFile(file_name,"r") as zip_ref:
+    zip_ref.extractall()
+    upload_csv("open_postcode_geo.csv", "postcode_data")
+  # delete the zip file
+#   %rm $file_name
+
+"""### OSM utilities"""
+
+# geometry warnings when doing `.distance` with geographical CRS coordinates:
+#   We can safely ignore this since the distance calculations are between
+#   relatively close points, so the earth's curvature is minimal
+warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
+
+def km_to_crs(dist_km): # 3 args, lat, width, and height
+  return (dist_km / 40075) * 360
+  # h = height / 110.574
+  # w = weidth / (math.cos(lat * math.pi/180) * 111.320))
+
+def crs_to_km(dist_crs): # two args, lat and lon
+  return (dist_crs / 360) * 40075
+  # h = 110.574 * lat_diff
+  # w = 111.320 * math.cos(lat * math.pi / 180) * lon_diff
+
+  # return math.sqrt(h**2 + w**2)
+
+def get_pois_around_point(longitude, latitude, dist_in_km, required_tags, keys={}, dropCols=True):
   """
-  If get_connection_url is set to True, returns a string that can
-  be used to connect to the MariaDB server using %sql magic.
-  Otherwise, a connection object is returned.
+  Returns a pandas dataframe of POIs that are located inside a bounding
+  box around specified point with sides of length `dist_in_km`.
+
+  These POIs will either have a tag in `required_tags` with any value or a
+  valid OSM "key : value" combination specified in `keys`. If a key is
+  in both `required_tags` and `keys` the latter will take priority.
+
+  If dropCols is set, the columns not specified in neither required_tags
+  nor keys is removed from the result
   """
-  # read stored information
-  with open("credentials.yaml") as file:
-    credentials = yaml.safe_load(file)
-  with open("database-details.yaml") as file:
-    database_details = yaml.safe_load(file)
-  username = credentials["username"]
-  password = credentials["password"]
-  url = database_details["url"]
-  port = int(database_details["port"])
-  # for use if doing %sql mariadb+pymysql://$return_value
-  if get_connection_url:
-    return f"{username}:{password}@{url}?local_infile=1"
+  # don't override what is specified in keys
+  tags = { k: True for k in required_tags if k not in keys }
+  tags = {**tags, **keys}
+  # make bb
+  delta_dist = km_to_crs(dist_in_km)
+  north = latitude + delta_dist
+  south = latitude - delta_dist
+  west = longitude - delta_dist
+  east = longitude + delta_dist
+  
+  pois = ox.geometries_from_bbox(north, south, east, west, tags)
+
+  gdf = None
+  # don't use non-interesting keys
+  # if tags is not None:
+  present_keys = [key for key in tags if key in pois.columns]
+  if 'geometry' not in present_keys:
+    present_keys.append('geometry')
+  if dropCols:
+    gdf = gpd.GeoDataFrame(pois[present_keys])
   else:
-    conn = None
-    try:
-      conn = pymysql.connect(user=username,
-          passwd=password,
-          host=url,
-          port=port,
-          local_infile=1,
-          db=database
-          )
-    except Exception as e:
-      print(f"Error connecting to the MariaDB Server: {e}")
-    return conn 
+    gdf = gpd.GeoDataFrame(pois)
+  gdf.crs = "EPSG:4326"
+  return gdf
 
-def db_query(conn, query, n=None):
+def get_pois_with_amenity_value(longitude, latitude, dist_in_km, amenities):
   """
-  Perform specified SQL query using provided connection
-  and limit the result to the first n rows if n is
-  specified.
-  :param conn: the Connection object
-  :param query: The SQL query
-  :param n: number of rows (optional)
+  Returns a dataframe of POIs around specified bounding box where the amenity key
+  is set to any value in amenities
   """
-  cur = conn.cursor()
-  if n is not None:
-    query = f"{query} LIMIT {n}"
-  cur.execute(query)
-  return cur.fetchall()
+  pois = get_pois_around_point(longitude, latitude,
+                               dist_in_km, ["amenity"])
+  # remove columns with all NaNs, and filter out rows not interesting
+  return pois[pois['amenity'].isin(amenities)].dropna(axis=1, how='all')
+
+def make_geodataframe(df):
+  """
+  Converts a DataFrame with longitude and latitude columns into a
+  GeoDataFrame
+  """
+  gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude))
+  if 'db_id' in gdf:
+    gdf = gdf.set_index('db_id')
+  gdf.crs = "EPSG:4326"
+  return gdf
 
 # Sample function
 def data():
