@@ -23,7 +23,7 @@ URL = "https://github.com/marcusGH/ads_fynesse_uk_property_price_prediction"
 EMAIL = "maks2@cam.ac.uk"
 AUTHOR = "Marcus September"
 REQUIRES_PYTHON = ">=3.6.0"
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
