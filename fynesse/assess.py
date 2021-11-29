@@ -3,6 +3,8 @@ from .config import *
 from matplotlib.colors import LogNorm
 
 import matplotlib.pyplot as plt
+import geopandas as gpd
+import pandas as pd
 import seaborn as sbn
 import warnings
 
