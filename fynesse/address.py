@@ -15,7 +15,7 @@ import tensorflow as tf
 import scipy.stats"""
 
 from sklearn.model_selection import train_test_split
-from access import km_to_crs, crs_to_km, make_geodataframe
+from fynesse.access import km_to_crs, crs_to_km, make_geodataframe
 
 import statsmodels.api as sm
 import sklearn.metrics as skm
