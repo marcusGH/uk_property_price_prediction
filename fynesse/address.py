@@ -315,18 +315,18 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
   for f in features:
     if (f['func'] == 'num_houses' or f['func'] == 'num_houses') and len(prices_coordinates_gdf) > 1800:
       print(f"There was a lot of data entries found ({len(prices_coordinates_gdf)}). "
-        + "Running prediction without num_houses feature to speed up computation")
-      if isinstance(f['name'], str):
-        prices_coordinates_gdf[f['name']] = 0
-      else:
-        prices_coordinates_gdf[f['name'][0]] = 0
-      continue
+        + "Considering removing the feature num_houses to speed up computation")
+    # if isinstance(f['name'], str):
+    #   prices_coordinates_gdf[f['name']] = 0
+    # else:
+    #   prices_coordinates_gdf[f['name'][0]] = 0
+    # continue
     # we don't cache features because it makes the add_feature_from_pois
     #   utility functions to constrained as would need to return a series
     # cache_key_f = (cache_key_sql, cache_key_osm, f['name'], f['func'], f['dist'])
     # if cache_key_f not in build_prices_coordinates_features_dataset.cache:
-      # build_prices_coordinates_features_dataset.cache[cache_key_f] = \
-      #   add_feature_from_pois(prices_coordinates_gdf, pois, larger_prices_gdf, **f)
+    #   build_prices_coordinates_features_dataset.cache[cache_key_f] = \
+    #     add_feature_from_pois(prices_coordinates_gdf, pois, larger_prices_gdf, **f)
 
     # Add a new column with name f['name'] using the values computed for the feature
     # prices_coordinates_gdf = prices_coordinates_gdf.assign(**{f['name']: build_prices_coordinates_features_dataset.cache[cache_key_f].to_numpy()})
