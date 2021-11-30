@@ -52,8 +52,7 @@ warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*"
 #     (np.abs(s) >= np.partition(np.abs(s.values).flatten(), -n-1)[-n-1]), props, '')
 
 def highlight_topn(n):
-  return lambda s, props = '':
-    np.where((s != 1) &
+  return lambda s, props = '': np.where((s != 1) &
         (np.abs(s) >= np.partition(np.abs(s.values).flatten(), -n-1)[-n-1]), props, '')
 
 """Address a particular question that arises from the data"""
