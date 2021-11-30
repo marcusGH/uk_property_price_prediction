@@ -29,7 +29,7 @@ import warnings
 warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
 
 def highlight_aboven(n):
-    """
+  """
   Returns a pandas style lambda to
   highlight the values in a
   correlation matrix above n
