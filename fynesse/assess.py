@@ -55,46 +55,6 @@ def plot_geographical_heatmap(ax, gdf, val, bins, transform='mean', useLog=False
   ax.set_ylabel("Latitude")
 
 
-
-def highlight_aboven(n):
-  """
-  Returns a pandas style lambda to
-  highlight the values in a
-  correlation matrix above n
-
-  Usage:
-    my_dataframe.style.apply(highlight_aboven(<int>))
-  """
-  return lambda s, props='': \
-    np.where((s != 1) &
-             (np.abs(s) >= n), props, '')
-
-def highlight_topn(n):
-  """
-  Returns a pandas style lambda to
-  highlight the top n values in a
-  correlation matrix
-
-  Usage:
-    my_dataframe.style.apply(highlight_topn(<int>))
-  """
-  return lambda s, props='': \
-    np.where((s != 1) &
-             (np.abs(s) >= np.partition(np.abs(s.values).flatten(),
-                                        -n-1)[-n-1]), props, '')
-
-
-
-
-
-
-
-
-
-
-
-
-
 def data():
     """Load the data from access and ensure missing values are correctly encoded as well as indices correct, column names informative, date and times correctly formatted. Return a structured data structure such as a data frame."""
     df = access.data()

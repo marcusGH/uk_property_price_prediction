@@ -555,4 +555,7 @@ def recover_df_from_file(filename, upload_required=True):
 
   return df
 
+def flatten(t):
+  return [item for sublist in t for item in sublist]
+
 # vim: shiftwidth=2 tabstop=2
