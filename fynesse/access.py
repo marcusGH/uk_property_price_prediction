@@ -12,6 +12,7 @@ import sqlite"""
 from google.colab import files
 from ipywidgets import interact_manual, Text, Password
 from shapely.geometry import Polygon, LineString, Point
+from collections import Iterable
 
 import geopandas as gpd
 import datetime
@@ -555,7 +556,12 @@ def recover_df_from_file(filename, upload_required=True):
 
   return df
 
-def flatten(t):
-  return [item for sublist in t for item in sublist]
+def flatten(coll):
+  for i in coll:
+    if isinstance(i, Iterable) and not isinstance(i, str):
+      for subc in flatten(i):
+        yield subc
+    else:
+      yield i
 
 # vim: shiftwidth=2 tabstop=2

@@ -20,6 +20,7 @@ from fynesse.access import km_to_crs, crs_to_km, make_geodataframe, flatten
 from shapely.geometry import Polygon, LineString, Point
 
 import fynesse
+import fynesse.access
 import geopandas as gpd
 import numpy as np
 import pandas as pd
