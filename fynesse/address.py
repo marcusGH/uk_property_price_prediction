@@ -37,9 +37,7 @@ def highlight_aboven(n):
   Usage:
     my_dataframe.style.apply(highlight_aboven(<int>))
   """
-  return lambda s, props='': \
-          np.where((s != 1) &
-             (np.abs(s) >= n), props, '')
+  return lambda s, props='': np.where((s != 1) & (np.abs(s) >= n), props, '')
 
 def highlight_topn(n):
   """
@@ -50,10 +48,8 @@ def highlight_topn(n):
   Usage:
     my_dataframe.style.apply(highlight_topn(<int>))
   """
-  return lambda s, props='': \
-          np.where((s != 1) &
-                  (np.abs(s) >= np.partition(np.abs(s.values).flatten(),
-                      -n-1)[-n-1]), props, '')
+  return lambda s, props='': np.where((s != 1) &
+    (np.abs(s) >= np.partition(np.abs(s.values).flatten(), -n-1)[-n-1]), props, '')
 
 """Address a particular question that arises from the data"""
 
@@ -334,3 +330,5 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
   # return
   return prices_coordinates_gdf, pois, larger_prices_gdf
 build_prices_coordinates_features_dataset.cache = {}
+
+# vim: set shiftwidth=2 :
