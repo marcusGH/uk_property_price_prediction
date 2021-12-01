@@ -314,7 +314,7 @@ def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs
 
 def do_pca(design_matrix_fun, data_gdf, features):
 
-  X = design_matrix_fun(data_gdf)
+  X = design_matrix_fun(data_gdf, features)
 
   print(f"Shape of design matrix applied to features: {X.shape}")
 
