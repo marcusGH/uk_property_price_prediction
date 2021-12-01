@@ -315,7 +315,7 @@ def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs
 def do_pca(design_matrix_fun, data_gdf):
   print(f"Shape of design matrix applied to features: {design(dataset_gdf).shape}")
 
-  X = design(data_gdf)
+  X = design_matrix_fun(data_gdf)
 
   # normalize by column, such that variance is 1 and mean is 0
   X = (X - X.mean(axis=0)) / X.std(axis=0)
