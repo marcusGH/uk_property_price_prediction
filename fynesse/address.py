@@ -126,9 +126,9 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
 
   # filter out properties of different types
   if len(prices_coordinates_gdf[prices_coordinates_gdf['property_type'] == property_type]) > 100:
-    print("Found enough properties of appropriate type. Filtering out other types for predictions...")
+    print(f"Found enough properties of type {property_type}. Filtering out other types for predictions...")
     prices_coordinates_gdf = prices_coordinates_gdf[prices_coordinates_gdf['property_type'] == property_type]
-    print(f"Which leaves {len(prices_coordinates_gdf)} rows")
+    print(f"Which leaves {len(prices_coordinates_gdf)} rows of property type {property_type}")
   else:
     print("Did not find enough properties of appropriate type. Using all types...")
 
@@ -167,7 +167,7 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
       print(f"The cache key {cache_key_sql} is in cache, skipping SQL query...")
     larger_prices_gdf = build_prices_coordinates_features_dataset.cache[cache_key_sql]
     if logging:
-      print(f"Found {len(larger_prices_gdf)} prices_coordinate rows for larger range")
+      print(f"Found {len(larger_prices_gdf)} prices_coordinate rows of any property type for larger area")
 
   # fetch the POIs around the bounding box
   cache_key_osm = ("OSM", latitude, longitude, pois_bb_size_km)
