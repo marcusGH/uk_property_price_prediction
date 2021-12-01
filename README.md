@@ -44,6 +44,24 @@ These functions handle everything from interactively connecting to
 the database to getting a `PyMySQL` connection object for doing
 queries to it.
 
+We create a utility function that sets up the appropriate schema for `pp_data`,
+using our `db_query` utility function. 
+
+Throughout _accessing_ data from our tables, we will do a lot of database
+queries and it's more suitable to do this with the `PyMySQL` API than through
+magic line commands because this allows more flexibility. We also create a new
+connection each time we do a query such that we don't need to pass a connection
+object around everywhere. Additionally, our `db_query` and `db_select`
+functions allow manually interrupting the SQL query if it takes an unexpected
+long time to complete, and safely closing the connection such that future
+queries are not affected.
+
+We will likely use the `SELECT ... ` SQL command that does this relatively often, and we may want to extend this query with custom conditions or limitations, like ` ... LIMIT 10` or ` ... WHERE town_city = 'Cambridge'` (Note that some conditions have been included as options like `minYear`). 
+
+The utility function for joining on the fly thus just returns a SQL query string that can optionally extend and then pass onto `db_select` to actually perform the query and get a pandas dataframe.
+
+
+
 ### General utility functions
 
 * `km_to_crs(dist_km, latitude=53.71, longitude=-2.03)`
@@ -159,6 +177,16 @@ The last three functions all use `_add_spatial_aggregate_column` which works as 
 * Each entry in `gdf` is put in a group together with all the entries in `pois` that are within `dist_in_km` of the `gdf` entry's spatial position.
 * A specified aggregation function is run on this group, producing a value (e.g. the number of `pois` entries in the group)
 * This value is added to a new column with name `col_name`
+
+When programming this, I also realised how similar
+counting the number of POIs within an area and finding the closest POI
+within that area are, so there's another hidden utility function which
+handles the aggregation done in the most general way: `_add_spatial_aggregate_column`.
+
+I have added these utility function in _Address_ because they enrich
+my dataframes with aggregation data that is useful when evaluating how
+suitable a feature is for a specific problem, and the utility functions can give
+aggregation data that can be used to decide on features for many other problems that other people may address as well
 
 ## Address.py
 
