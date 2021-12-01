@@ -22,38 +22,41 @@ The functions `access.py` are split into the following sections:
 
 ### Database setup
 
-``
+`get_database_connection(database, get_connection_url=False)`
+`get_and_store_credentials()`
+`get_database_details()`
+`create_database(db_name)`
 
+### General utility functions
 
-get_and_store_credentials():
-get_database_details():
-get_database_connection(database, get_connection_url=False):
-create_database(db_name):
-get_database_connection(database, get_connection_url=False):
-db_query(query, database="property_prices"):
-db_select(query, database="property_prices", n=None, one_every=None):
-inner_join_sql_query(minYear=None,maxYear=None,minLatitude=None,
-prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRange=None):
-create_pp_data_table():
-create_postcode_data_table():
-upload_csv(csv_file, table_name):
-download_file_from_url(url):
-download_and_upload_price_paid_data(ymin=1995,ymax=2022):
-download_and_upload_postcode_data():
-km_to_crs(dist_km, latitude=53.71, longitude=-2.03):
-crs_to_km(dist_crs): # two args, lat and lon
-get_pois_around_point(longitude, latitude, dist_in_km,
-get_pois_with_amenity_value(longitude, latitude, dist_in_km, amenities):
-point_to_bounding_box(longitude, latitude, size):
-flatten(coll):
+`km_to_crs(dist_km, latitude=53.71, longitude=-2.03)`
+`crs_to_km(dist_crs): # two args, lat and lo`
+`flatten(coll)`
+`point_to_bounding_box(longitude, latitude, size)`
 
 ### Database queries
 
+`db_query(query, database="property_prices")`
+`db_select(query, database="property_prices", n=None, one_every=None)`
+`inner_join_sql_query(minYear=None,maxYear=None,minLatitude=None`
+`prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRange=None)`
+
 ### Schema setup
+
+`create_pp_data_table()`
+`create_postcode_data_table()`
 
 ### Data import
 
+`upload_csv(csv_file, table_name)`
+`download_file_from_url(url)`
+`download_and_upload_price_paid_data(ymin=1995,ymax=2022)`
+`download_and_upload_postcode_data()`
+
 ### OSM access utilities
+
+`get_pois_around_point(longitude, latitude, dist_in_km`
+`get_pois_with_amenity_value(longitude, latitude, dist_in_km, amenities)`
 
 * `get_pois_around_point(longitude, latitude, dist_in_km, required_tags, keys, dropCols=True)`
   * This function makes a bounding box around specified coordinates and returns a GeoDataFrame

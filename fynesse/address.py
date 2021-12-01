@@ -312,7 +312,7 @@ def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs
 ###################################### Evaluations ###########################
 """
 
-def do_pca(design_matrix_fun, data_gdf):
+def do_pca(design_matrix_fun, data_gdf, features):
 
   X = design_matrix_fun(data_gdf)
 
@@ -331,11 +331,10 @@ def do_pca(design_matrix_fun, data_gdf):
 
   # Print how much each feature contribute
   i = 0
-  for f in features_many:
+  for f in features:
     for name in f['name']:
       var_ex = pca.explained_variance_ratio_[i]
       print(f"Feature {name} explains {var_ex:.4} of the variance")
       i += 1
-
 
 # vim: set shiftwidth=2 :
