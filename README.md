@@ -1,20 +1,20 @@
 # Fynesse
 
 1. [Access](#Access)
-  1. [Database setup](#Database-setup)
-  2. [General utility functions](#General-utility-functions)
-  3. [Database queries](#Database-queries)
-  4. [Schema setup](#Schema-setup)
-  5. [Data import](#Data-import)
-  6. [OSM access utilities](#OSM-access-utilities)
+    1. [Database setup](#Database-setup)
+    2. [General utility functions](#General-utility-functions)
+    3. [Database queries](#Database-queries)
+    4. [Schema setup](#Schema-setup)
+    5. [Data import](#Data-import)
+    6. [OSM access utilities](#OSM-access-utilities)
 2. [Assess](#Assess)
-  1. [Visualisation utilities](#Visualisation-utilities)
-  2. [Sanitsation](#Sanitsation)
-  3. [Dataframe aggregation](#Dataframe-aggregation)
+    1. [Visualisation utilities](#Visualisation-utilities)
+    2. [Sanitsation](#Sanitsation)
+    3. [Dataframe aggregation](#Dataframe-aggregation)
 3. [Address](#Address)
-  1. [Adding features](#Adding-features)
-  2. [House price prediction](#House-price-prediction)
-  3. [Dimensionality reduction](#Dimensionality-reduction)
+    1. [Adding features](#Adding-features)
+    2. [House price prediction](#House-price-prediction)
+    3. [Dimensionality reduction](#Dimensionality-reduction)
 
 This repo contains a set of utility functions associated with the tasks of:
 * _Access_ ing prices paid data, postcode data and Open Street Map (OSM) data
