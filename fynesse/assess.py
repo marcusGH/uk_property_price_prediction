@@ -1,6 +1,7 @@
 from .config import *
 
 from matplotlib.colors import LogNorm
+from shapely.geometry import Polygon, LineString, Point
 from fynesse.access import km_to_crs, crs_to_km
 from fynesse import access
 

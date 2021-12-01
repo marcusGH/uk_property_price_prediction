@@ -47,3 +47,6 @@ for the `keys` specified as interesting. Below is an example of this use:
 
 ## Address.py
 
+Below I give an example of adding a column with the number of houses being sold within a 1km radius, for houses in 4𝑘𝑚2 area around Cambridge (interestingly, the get_num_pois_within_radius, that was initially built to a different purpose, can be reused for this computation):
+
+wider_gdf ....
