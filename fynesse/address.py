@@ -34,30 +34,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
 
-# def highlight_aboven(n):
-#   """
-#   Returns a pandas style lambda to
-#   highlight the values in a
-#   correlation matrix above n
-#
-#   Usage:
-#     my_dataframe.style.apply(highlight_aboven(<int>))
-#   """
-#   return lambda s, props='': np.where((s != 1) & (np.abs(s) >= n), props, '')
-#
-# def highlight_topn(n):
-#   """
-#   Returns a pandas style lambda to
-#   highlight the top n values in a
-#   correlation matrix
-#
-#   Usage:
-#     my_dataframe.style.apply(highlight_topn(<int>))
-#   """
-#   return lambda s, props='': np.where((s != 1) &
-#     (np.abs(s) >= np.partition(np.abs(s.values).flatten(), -n-1)[-n-1]), props, '')
-
-
 def add_feature_from_pois(gdf, pois, larger_gdf=None, **feature_kwargs):
   augmented_gdf = None
   if feature_kwargs['func'] == 'closest':

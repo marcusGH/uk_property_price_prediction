@@ -534,6 +534,12 @@ def point_to_bounding_box(longitude, latitude, size):
   }
 
 def flatten(coll):
+  """
+  Returns a flatten list when given lists of lists, but the strings
+  in that list are not flattened.
+
+  See: https://stackoverflow.com/questions/17864466/flatten-a-list-of-strings-and-lists-of-strings-and-lists-in-python
+  """
   for i in coll:
     if isinstance(i, Iterable) and not isinstance(i, str):
       for subc in flatten(i):
