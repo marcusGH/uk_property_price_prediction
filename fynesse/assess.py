@@ -39,16 +39,16 @@ def plot_housing_density_against_price_and_amt_data(gdf, loc, osm_accommodation_
   fig.suptitle(f"Log-plot of housing price, houses sold, and accommodation density in {loc}", fontsize=24)
 
   axs[0].set_title(f"House price", fontsize=16)
-  assess.plot_geographical_heatmap(axs[0], gdf,
+  plot_geographical_heatmap(axs[0], gdf,
                             'price', 50, useLog=True, transform='mean')
 
   axs[1].set_title(f"Houses sold in {loc}", fontsize=16)
   # value field doesn't matter when 'count' is used
-  assess.plot_geographical_heatmap(axs[1], gdf,
+  plot_geographical_heatmap(axs[1], gdf,
                             'postcode', 50, useLog=True, transform='count')
 
   axs[2].set_title(f"Number of OSM accomoodations in {loc}", fontsize=16)
-  assess.plot_geographical_heatmap(axs[2], pois, 'building', 50, 'count', useLog=True)
+  plot_geographical_heatmap(axs[2], pois, 'building', 50, 'count', useLog=True)
 
   plt.show()
 
