@@ -474,17 +474,21 @@ def crs_to_km(dist_crs): # two args, lat and lon
 
   # return math.sqrt(h**2 + w**2)
 
-def get_pois_around_point(longitude, latitude, dist_in_km, required_tags, keys={}, dropCols=True):
+def get_pois_around_point(longitude, latitude, dist_in_km,
+    required_tags=[], keys={}, dropCols=True):
   """
-  Returns a pandas dataframe of POIs that are located inside a bounding
+  Returns a geopandas GeoDataFrame of POIs that are located inside a bounding
   box around specified point with sides of length `dist_in_km`.
 
-  These POIs will either have a tag in `required_tags` with any value or a
-  valid OSM "key : value" combination specified in `keys`. If a key is
-  in both `required_tags` and `keys` the latter will take priority.
+  These POIs will either have a non-NaN value in a OSM key specified in
+  `required_tags` or a valid OSM "key : value" combination specified in `keys`.
+  If a key is in both `required_tags` and `keys` the latter will take priority.
 
   If dropCols is set, the columns not specified in neither required_tags
-  nor keys is removed from the result
+  nor keys is removed from the returned GeoDataFrame
+
+  :param keys: A dictionary where the keys are valid OSM keys and the values
+               are either True or a list of OSM values for that key
   """
   # don't override what is specified in keys
   tags = { k: True for k in required_tags if k not in keys }
@@ -521,17 +525,6 @@ def get_pois_with_amenity_value(longitude, latitude, dist_in_km, amenities):
   # remove columns with all NaNs, and filter out rows not interesting
   return pois[pois['amenity'].isin(amenities)].dropna(axis=1, how='all')
 
-def make_geodataframe(df):
-  """
-  Converts a DataFrame with longitude and latitude columns into a
-  GeoDataFrame
-  """
-  gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.longitude, df.latitude))
-  if 'db_id' in gdf:
-    gdf = gdf.set_index('db_id')
-  gdf.crs = "EPSG:4326"
-  return gdf
-
 def point_to_bounding_box(longitude, latitude, size):
   return {
       "minLongitude" : longitude - size/2,
@@ -539,22 +532,6 @@ def point_to_bounding_box(longitude, latitude, size):
       "minLatitude"  : latitude  - size/2,
       "maxLatitude"  : latitude  + size/2
   }
-def recover_df_from_file(filename, upload_required=True):
-  """
-  There is some strange things happening when saving
-  a gdf as csv and uploading it, so I've abstracted
-  away the task of fixing this
-  """
-  if upload_required:
-    files.upload()
-  df = pd.read_csv(filename)
-  if 'geometry' in df:
-    df.drop(columns=['geometry'])
-    df = make_geodataframe(df)
-  if 'date_of_transfer' in df:
-    df['date_of_transfer'] = pd.to_datetime(df['date_of_transfer']).dt.date
-
-  return df
 
 def flatten(coll):
   for i in coll:
