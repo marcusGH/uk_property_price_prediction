@@ -205,6 +205,7 @@ def _add_spatial_aggregate_column(gdf, pois, dist_in_km, col_name, agg_f, nafill
   pois_copy['geometry_copy'] = pois_copy['geometry']
 
   # add a approximated circular buffer around each point in gdf
+  warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
   gdf_copy['geometry'] = gdf_copy.geometry.buffer(dist)
 
   # count pois within the buffer of each point

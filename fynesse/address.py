@@ -114,7 +114,7 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
     if logging:
       print(f"The cache key {cache_key_sql} is not in cache, running SQL query...")
     build_prices_coordinates_features_dataset.cache[cache_key_sql] = assess.make_geodataframe(
-      fynesse.access.prices_coordinates_range_query_fast(longitude-bb_half_size,
+      access.prices_coordinates_range_query_fast(longitude-bb_half_size,
                                       longitude+bb_half_size,
                                       latitude-bb_half_size,
                                       latitude+bb_half_size,
@@ -157,7 +157,7 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
       if logging:
         print(f"The cache key {cache_key_sql} is not in cache, running SQL query...")
       build_prices_coordinates_features_dataset.cache[cache_key_sql] = assess.make_geodataframe(
-          fynesse.access.prices_coordinates_range_query_fast(longitude-bb_larger_half_size,
+          access.prices_coordinates_range_query_fast(longitude-bb_larger_half_size,
             longitude+bb_larger_half_size,
             latitude-bb_larger_half_size,
             latitude+bb_larger_half_size,
@@ -175,7 +175,7 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
     if logging:
       print(f"The cache key {cache_key_osm} is not in cache, querying OSM...")
     build_prices_coordinates_features_dataset.cache[cache_key_osm] = \
-      fynesse.access.get_pois_around_point(longitude, latitude, pois_bb_size_km / 2, keys=pois_keys)
+      access.get_pois_around_point(longitude, latitude, pois_bb_size_km / 2, keys=pois_keys)
   else:
     print(f"The cache key {cache_key_osm} is in cache, skipping OSM query...")
   pois = build_prices_coordinates_features_dataset.cache[cache_key_osm]
