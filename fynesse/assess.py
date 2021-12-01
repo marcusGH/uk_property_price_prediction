@@ -163,6 +163,17 @@ def highlight_topn(n):
   return lambda s, props = '': np.where((s != 1) &
         (np.abs(s) >= np.partition(np.abs(s.values).flatten(), -n-1)[-n-1]), props, '')
 
+def highlight_aboven(n):
+  """
+  Returns a pandas style lambda to
+  highlight the values in a
+  correlation matrix above n
+  Usage:
+    my_dataframe.style.apply(highlight_aboven(<int>))
+  """
+  return lambda s, props='': np.where((s != 1) &
+        (np.abs(s) >= n), props, '')
+
 def _add_spatial_aggregate_column(gdf, pois, dist_in_km, col_name, agg_f, nafill=np.nan, cacheBy='postcode'):
   """
   Adds a new column to GeoDataFrame `gdf` and returns this modified GeoDataFrame.
