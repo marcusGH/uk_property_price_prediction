@@ -399,7 +399,7 @@ def predict_price_simple(latitude, longitude, date, property_type):
       ), axis=1)
 
   fig, ax = plt.subplots(figsize=(10,10))
-  price_prediction, err = address.predict_price(latitude, longitude, year, property_type,
+  price_prediction, err = predict_price(latitude, longitude, year, property_type,
     build_dataset_kwargs, design, printSummary=True, plotAx=ax)
   if price_prediction is not None:
     print(f"Predicted price:\n\t\t{price_prediction} ± {err}")
@@ -454,4 +454,5 @@ def do_pca(design_matrix_fun, data_gdf, features, ncomponents=4):
   print("=" * 30)
 
   return df
+
 # vim: set shiftwidth=2 :
