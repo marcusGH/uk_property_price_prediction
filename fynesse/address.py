@@ -89,7 +89,26 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
                                               pois_keys, features,
                                               logging=False):
   """
-  Returns a pandas dataframe ... TODO TODO
+  Returns a tuple
+
+      dataset_gdf, pois, larger_dataset_gdf
+
+  dataset_gdf:
+    a pandas dataframe with a row for every property sold within a
+    bounding box of size `bb_size_km` around point (lat, lon) within a time
+    window of `year_range_size` number of years, centred at year `date`.  This
+    dataframe will have the columns of the prices_coordinates_table @see
+    inner_join_sql_query and also have an extra column for each feature described
+    in `features`. Rows of property types other than `property_type` are filtered out
+  pois:
+    a dataframe of OSM POIs found at (lat, lon) within a bounding box of size
+    `pois_bb_size_km`, filtering out POIs with NaN values in all the keys in
+    `pois_keys`
+  larger_gdf:
+    a pandas dataframe with the same columns as dataset_gdf, but containing
+    all property types and sampling from a slightly larger bounding box. This dataframe
+    is to be provided to @see add_feature_from_pois if the 'num_houses' feature is
+    to computed
 
   :param latitude, longitude   geoposition around which to build dataset
   :param date                  integer specifying year around which data is fetched
@@ -226,8 +245,23 @@ build_prices_coordinates_features_dataset.cache = {}
 
 def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs, design, printSummary=False, plotAx=None):
   """
-  The date is in years
-  axis can be specified to plotFit
+  Predicts the price of a property of type `property_type` to be bought around location (lat, lon)
+  at a date around year `date`. The `build_dataset_kwargs` is a dictionary containing the keys:
+
+      bb_size_km       : bounding box size in km for prices_coordinates data querying
+      pois_bb_size_km  : bounding box size from which POIs are fetched from OSM
+      year_range_size  : integer specifying number of years in date range from which data is fetched
+      pois_keys        : a list of OSM keys @see get_pois_around_point
+      features         : a list of feature specifications @see add_feature_from_pois
+
+  The `design` parameter is a function taking a GeoDataFrame and returning a 2D `numpy` array
+  where there is a column for each feature and each row is the feature values for a specific
+  data item.
+
+  :param printSummary - enable statsmodels summary printing
+  :param plotAx       - a matplotlib axis that will be used to plot the fit if specified
+
+  :param data - an INTEGER specifying the year
   """
 
   # add some missing keys
@@ -305,31 +339,119 @@ def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs
 
   return pred_val, pred_val * mape
 
+def predict_price_simple(latitude, longitude, date, property_type):
+  """
+  The date must be an integer specifying the year
+  """
+  pois_keys = {
+      "amenity": ["restaurant", "fast_food"],
+      "shop": ["supermarket", "convenience"],
+      "public_transport": ["platform", "stop_position"],
+  }
+
+  features = [
+    {
+      'func' : 'count',
+      'pois_cond' : lambda pois : pois[(pois['amenity'] == 'restaurant') | (pois['amenity'] == 'fast_food')],
+      'dist' : 1, # km
+      'name' : 'num_restaurants_nearby'
+    },
+    {
+      'func' : 'closest',
+      'pois_cond' : lambda pois : pois[(pois['amenity'] == 'restaurant') | (pois['amenity'] == 'fast_food')],
+      'dist' : 3, # km
+      'name' : 'closest_restaurant'
+    },
+    {
+      'func' : 'closest',
+      'pois_cond' : lambda pois : pois[pois['public_transport'].notna()],
+      'dist' : 3, # km
+      'name' : 'closest_transport'
+    },
+    {
+      'func': 'num_houses',
+      'dist': 1, # km
+      'name' : 'num_houses_sold_nearby'
+    }
+  ]
+
+  build_dataset_kwargs = {
+      'bb_size_km' : 5,
+      # must be 6 km greater to cover distance queries for
+      #  houses on the border of the bounding box
+      'pois_bb_size_km' : 5 + 6,
+      'year_range_size' : 4,
+      'pois_keys' : pois_keys,
+      'features' : features
+  }
+
+  c_param = np.log(.1) / -2
+
+  # design matrix
+  def design(gdf : gpd.GeoDataFrame):
+    return np.concatenate((
+        # just gets the length
+        np.ones(gdf['postcode'].shape[0]).reshape(-1,1),
+        (gdf['num_restaurants_nearby'].to_numpy()).reshape(-1,1),
+        np.exp(-c_param * gdf['closest_restaurant'].to_numpy()).reshape(-1,1),
+        np.exp(-c_param * gdf['closest_transport'].to_numpy()).reshape(-1,1),
+        (1 / (1 + gdf['num_houses_sold_nearby'].to_numpy() / 100)).reshape(-1,1)
+      ), axis=1)
+
+  fig, ax = plt.subplots(figsize=(10,10))
+  price_prediction, err = address.predict_price(latitude, longitude, year, property_type,
+    build_dataset_kwargs, design, printSummary=True, plotAx=ax)
+  if price_prediction is not None:
+    print(f"Predicted price:\n\t\t{price_prediction} ± {err}")
+    plt.show()
+  else:
+    print("Unable to get a price prediction. Set the debug messages for more information.")
+    plt.close()
+
 """
 ###################################### Evaluations ###########################
 """
 
-def do_pca(design_matrix_fun, data_gdf, features):
+def do_pca(design_matrix_fun, data_gdf, features, ncomponents=4):
+  """
+  Returns a dataframe describing how much variance each principal component
+  describes and indicating which features has the highest absolute coefficient
+  in the principal component's linear combination.
+  """
+
+  feature_names = list(access.flatten([f['name'] for f in features]))
 
   X = design_matrix_fun(data_gdf, features)
-
-  print(f"Shape of design matrix applied to features: {X.shape}")
 
   # normalize by column, such that variance is 1 and mean is 0
   X = (X - X.mean(axis=0)) / X.std(axis=0)
 
   # We now do PCA
 
-  pca = PCA()
+  pca = PCA(n_components=ncomponents)
   pca.fit(X)
 
   # Transform
   transformed_pca = pca.transform(X)
 
-  # Print how much each feature contribute
-  for i, _ in enumerate(features):
-    var_ex = pca.explained_variance_ratio_[i]
-    var_name = pca.components_[i]
-    print(f"Feature {var_name} explains {var_ex:.4} of the variance")
+  # Extract principal components
 
+  num_pcs = pca.components_.shape[0]
+
+  most_important_id = [np.abs(pca.components_[i]).argmax() for i in range(num_pcs)]
+  most_important_feature_names = [feature_names[most_important_id[i]] for i in range(num_pcs)]
+
+  df = pd.DataFrame(columns=["principal_component", "most_important_features", "explained_variance"])
+
+  cumulative_var_explained =0 
+  # Print the most important feature to each PC
+  for i, fname in enumerate(most_important_feature_names):
+    cumulative_var_explained += pca.explained_variance_ratio_[i]
+    df.loc[len(df.index)] = [f"PC{i+1}", fname, pca.explained_variance_ratio_[i]]
+
+  print("=" * 30)
+  print(f"These {ncomponents} principal components explains {100*cumulative_var_explained:.4}% of the variance")
+  print("=" * 30)
+
+  return df
 # vim: set shiftwidth=2 :

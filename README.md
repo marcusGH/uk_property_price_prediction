@@ -196,12 +196,6 @@ aggregation data that can be used to decide on features for many other problems 
 
 ## Address
 
-Below I give an example of adding a column with the number of houses being sold within a 1km radius, for houses in 4𝑘𝑚2 area around Cambridge (interestingly, the get_num_pois_within_radius, that was initially built to a different purpose, can be reused for this computation):
-
-wider_gdf ....
-
-TODO: explain how build works and why we need the larger_gdf and pass it around etc.. to predict_price
-
 ### Adding features
 
 * `add_feature_from_pois(gdf, pois, larger_gdf=None, **feature_kwargs)`
@@ -218,18 +212,47 @@ These functions take a feature specification dictionary item e.g. on the form:
 
 and adds a new column to the provided dataframe `gdf` with values for this feature.
 
+The implementation of these functions is based on the pois-aggregation functions
+implemented in `assess.py`. The functions simply inspect the `func` field and pass
+the rest of the arguments onto the relevant pois aggregation function.
+
 ### House price prediction
 
 * `build_prices_coordinates_features_dataset(latitude, longitude, date, property_type, bb_size_km, pois_bb_size_km, year_range_size, pois_keys, features, logging=False)`
 * `predict_price(latitude, longitude, date, property_type, build_dataset_kwargs, design, printSummary=False, plotAx=None)`
+* `predict_price_simple(latitude, longitude, date, property_type)`
 
-The first function fetches all the relevant `prices_coordinates` data and evaluates the features
-for each of the rows, producing a large dataframe that can be used for training.
+The first function fetches all the relevant `prices_coordinates` data and adds a new column
+to the dataframe for each of the specified features. This function is encapsulated in
+the `predict_price` function and the arguments to it are encoded in the `build_dataset_kwargs` parameter.
+I abstracted away the process of building the dataset with all the features because I found it useful
+to just build such a dataframe, without doing price predictions, for other tasks done in the notebook.
 
-The `predict_price` functions first builds the features_dataset using the above function,
-then splits it 80/20 into a training- and testing-set, respectively. I then trains a GLM
-model to do a price prediction on the specified property and reports on how well this model
-predicts on the held-out testing-set.
+The `predict_price` function takes in all the basic information about the
+property from `latitude` to `property_type`.  It also takes a specification of
+a `design` matrix. This specification is a function from a `GeoDataFrame` to a
+2-dimensional `numpy` array. The `build_dataset_kwargs` also have to be
+specified (specific structure in the function docs). The `predict_price`
+function starts by building the dataset using the above utility function.  It
+then trains a `statsmodel` GLM on 80% of this data and the model is tested on
+the remaining 20%, allowing us to plot the predictions against the true price,
+as well as computing various metrics. When making a prediction for the property
+type specified through the function parameters, we make use of the
+`add_many_features_from_pois` utility function to calculate the feature values
+for the single property we are making a prediction for. This requires providing
+the `pois` dataframe and the larger `gdf_for_num_houses` dataframe that was
+used in the computation of the features for the training set. Therefore, these
+dataframes are returned by `build_prices_coordinates_features_dataset` such
+that we can pass them on to `add_many_features_from_pois`. All in all, we are
+running the functionality to add features twice: One batch run for all of our
+training+testing data, and once for the single datum we want to predict the price
+for. The former happens in `build_prices_coordinates_features_dataset` and the
+latter in `predict_price`, but in both instances `add_many_features_from_pois`
+is used.
+
+The `predict_price_simple` simply makes a call to `predict_price`, but with a specified `build_dataset_kwargs`
+and `design` matrix. If the user does not want to create their own feature specification or design
+matrix, this is the more accessible function.
 
 ### Dimensionality reduction
 
