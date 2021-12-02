@@ -339,7 +339,7 @@ def predict_price(latitude, longitude, date, property_type, build_dataset_kwargs
 
   return pred_val, pred_val * mape
 
-def predict_price_simple(latitude, longitude, date, property_type):
+def predict_price_simple(latitude, longitude, year, property_type):
   """
   The date must be an integer specifying the year
   """
