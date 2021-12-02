@@ -45,20 +45,20 @@ warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*"
 
 # Database set up and connection utility functions
 def get_and_store_credentials():
-  @interact_manual(username=Text(description="Username:"), 
+  @interact_manual(username=Text(description="Username:"),
                   password=Password(description="Password:"))
   def write_credentials(username, password):
       with open("credentials.yaml", "w") as file:
-          credentials_dict = {'username': username, 
+          credentials_dict = {'username': username,
                               'password': password}
           yaml.dump(credentials_dict, file)
 
 def get_database_details():
-  @interact_manual(url=Text(description="Database endpoint:"), 
+  @interact_manual(url=Text(description="Database endpoint:"),
                   port=Text(description="Port number:"))
   def write_credentials(url, port):
       with open("database-details.yaml", "w") as file:
-          database_details_dict = {'url': url, 
+          database_details_dict = {'url': url,
                                    'port': port}
           yaml.dump(database_details_dict, file)
 
@@ -92,7 +92,7 @@ def get_database_connection(database, get_connection_url=False):
                         )
     except Exception as e:
         print(f"Error connecting to the MariaDB Server: {e}")
-    return conn 
+    return conn
 
 def create_database(db_name):
   # first connect to our MariaDB server
@@ -111,40 +111,12 @@ def create_database(db_name):
 ################################# Database queries ############################
 """
 
-# database connect and query utility functions
-def get_database_connection(database, get_connection_url=False):
-  """
-  If get_connection_url is set to True, returns a string that can
-  be used to connect to the MariaDB server using %sql magic.
-  Otherwise, a connection object is returned.
-  """
-  # read stored information
-  with open("credentials.yaml") as file:
-    credentials = yaml.safe_load(file)
-  with open("database-details.yaml") as file:
-    database_details = yaml.safe_load(file)
-  username = credentials["username"]
-  password = credentials["password"]
-  url = database_details["url"]
-  port = int(database_details["port"])
-  # for use if doing %sql mariadb+pymysql://$return_value
-  if get_connection_url:
-    return f"{username}:{password}@{url}?local_infile=1"
-  else:
-    conn = None
-    try:
-      conn = pymysql.connect(user=username,
-                        passwd=password,
-                        host=url,
-                        port=port,
-                        local_infile=1,
-                        db=database
-                        )
-    except Exception as e:
-        print(f"Error connecting to the MariaDB Server: {e}")
-    return conn 
-
 def db_query(query, database="property_prices"):
+  """
+  Runs specified query on specified database, and commits the changes if the
+  query caused any changes to the database. Nothing is returned, so this
+  function is more making changes to the tables.
+  """
   # conn = get_database_connection("property_prices")
   conn = get_database_connection(database)
   try:
@@ -158,24 +130,27 @@ def db_query(query, database="property_prices"):
 
 def db_select(query, database="property_prices", n=None, one_every=None):
   """
-  Perform specified SQL query using provided connection
-  and limit the result to the first n rows if n is
-  specified. Returns the result in a pandas dataframe.
-  :param conn: the Connection object
+  Perform specified SQL query and return the result as a pandas dataframe
+  with appropriate column names.
+  
   :param query: The SQL query
+  :param database: The database to do the query on
   :param n: number of rows (optional)
+  :param one_every: only fetch one row of every one_every rows returned
   """
   conn = get_database_connection(database)
   cur = conn.cursor()
   if n is not None:
     query = f"{query} LIMIT {n}"
-  
+
   try:
     cur.execute(query)
-    # convert result to pandas dataframe
+    # This cool line extracts the column names from the result
+    #   of the most recent query executed
     column_names = list(map(lambda x: x[0], cur.description))
     result_sql = cur.fetchall()
     conn.close()
+    # convert result to pandas dataframe
     df = pd.DataFrame(columns=column_names, data=result_sql)
     if 'db_id' in column_names:
       try:
@@ -188,22 +163,25 @@ def db_select(query, database="property_prices", n=None, one_every=None):
   except KeyboardInterrupt:
     conn.close()
     print("Received interruption and successfully closed the connection")
+  # This does not include KeyboardInterrupt
   except Exception as e:
     conn.close()
     print(traceback.format_exc())
     print(f"Tried to do query:")
     print(query)
-  
+
 def inner_join_sql_query(minYear=None,maxYear=None,minLatitude=None,
                          maxLatitude=None,minLongitude=None,maxLongitude=None,
                          oneEvery=None):
   """
-
-  :param one_very: integer i specifying that only every ith row should
+  Returns a string of an sql query that joins the `pp_data` and `postcode_data`
+  on the fly, selecting only those rows within the specified spatial and temporal
+  subrange, as specified by the first 6 arguments.
+  :param oneEvery: integer i specifying that only every ith row should
                    be returned (optional)
   """
   query = """
-    SELECT  
+    SELECT
       -- Columns from pp_data
       pp.county,
       pp.date_of_transfer,
@@ -247,18 +225,24 @@ def inner_join_sql_query(minYear=None,maxYear=None,minLatitude=None,
   # only select some rows
   if oneEvery is not None:
     query = f"{query} AND pp.db_id MOD {oneEvery} = 0"
-  
+
   return query
 
 def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRange=None):
   """
-  Optimized query to get rows from a certain geographical range and year range
+  Optimized query to get rows from a certain geographical range and year range, after
+  joining `pp_data` and `postcode_data`.
+
+  Returns a pandas dataframe with the results.
   """
+
+  # Cache the postcode_data table
   if prices_coordinates_range_query_fast.all_postcodes_df is None:
     prices_coordinates_range_query_fast.all_postcodes_df = \
       db_select("SELECT postcode, longitude, lattitude FROM postcode_data")
 
   # filter out postcodes outside bounding box
+  #  this is done in pandas instead of SQL because it's faster
   all_pd = prices_coordinates_range_query_fast.all_postcodes_df
   postcode_list = list((all_pd[
       (all_pd['longitude'] > minLon) &
@@ -270,6 +254,7 @@ def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRang
   postcodes = list(map(lambda x: f"'{x}'", postcode_list))
   if len(postcodes) == 0:
     raise Exception(f"There are no postcodes within the bounding box ({minLon}, {maxLon}, {minLat}, {maxLat})")
+  # The pp_data is indexed by postcodes, so this gives efficient retrieval
   cond_sql = f" AND pp.postcode IN (" + ",".join(postcodes) + f")"
   if yearRange is not None:
       cond_sql = f"{cond_sql} AND pp.date_of_transfer BETWEEN '{yearRange[0]}-01-01' AND '{yearRange[1]}-12-30'"
@@ -277,8 +262,6 @@ def prices_coordinates_range_query_fast(minLon, maxLon, minLat, maxLat, yearRang
 
 # only compute this dataframe on first call
 prices_coordinates_range_query_fast.all_postcodes_df = None
-
-# prices_coordinates_range_query_fast.all_postcodes_df = temp
 
 """
 ################################# Schema setup ###############################
@@ -329,7 +312,7 @@ def create_pp_data_table():
     "CREATE INDEX `pp.date` USING HASH "
     "ON `pp_data`  "
     "(date_of_transfer); ")]
-  
+
   # run the SQL commands
   for query in sql_schema_queries:
     db_query(query)
@@ -427,6 +410,11 @@ def download_file_from_url(url):
     return None
 
 def download_and_upload_price_paid_data(ymin=1995,ymax=2022):
+  """
+  Uploads UK price paid data from the year ymin inclusive to the
+  year ymax exclusive. This data is loaded into the table named
+  `pp_data`, assumed to be in a database called "poperty_prices"
+  """
   base_url = "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-{}-part{}.csv"
   parts = [1,2]
   for y in range(ymin, ymax):
@@ -439,6 +427,11 @@ def download_and_upload_price_paid_data(ymin=1995,ymax=2022):
       upload_csv(file_name, "pp_data")
 
 def download_and_upload_postcode_data():
+  """
+  Downloads and uploads UK postcode data.
+  This data is loaded into the table named
+  `postcode_data`, assumed to be in a database called "poperty_prices"
+  """
   base_url = "https://www.getthedata.com/downloads/open_postcode_geo.csv.zip"
   file_name = download_file_from_url(base_url)
   with zipfile.ZipFile(file_name,"r") as zip_ref:
@@ -499,7 +492,7 @@ def get_pois_around_point(longitude, latitude, dist_in_km,
   south = latitude - delta_dist
   west = longitude - delta_dist
   east = longitude + delta_dist
-  
+
   pois = ox.geometries_from_bbox(north, south, east, west, tags)
 
   gdf = None

@@ -35,6 +35,19 @@ import warnings
 warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
 
 def add_feature_from_pois(gdf, pois, larger_gdf=None, **feature_kwargs):
+  """
+  Returns the geodataframe gdf, but with a new column with values for the feature
+  specified in the feature_kwargs dictionary, which should contain entries
+
+      func : name indicating aggregation function to calculate the feature's value
+      pois_cond : lambda taking a pois and extracting the relevant POIs entries
+      dist : number of kilometers to search for POIs
+      name : name of the feature, and what to name the column
+
+  The pois geodataframe should contain POIs from OSM where all the columns mentioned in
+  pois_cond exists in pois. The POIs in `pois` should also have been fetched from an area
+  around all the entries in `gdf`.
+  """
   augmented_gdf = None
   if feature_kwargs['func'] == 'closest':
     augmented_gdf = assess.get_closest_poi_within_radius(gdf, feature_kwargs['pois_cond'](pois), feature_kwargs['dist'], feature_kwargs['name'])
@@ -51,6 +64,11 @@ def add_feature_from_pois(gdf, pois, larger_gdf=None, **feature_kwargs):
   return augmented_gdf
 
 def add_many_features_from_pois(gdf, pois, larger_gdf=None, **feature_kwargs):
+  """
+  A generalised version of add_feature_from_pois. The only difference is that
+  the 'func' and 'name' keys in the feature specification may contain a list
+  of functions to apply, e.g. 'func' : ['count', 'avg_dist']
+  """
   if isinstance(feature_kwargs['func'], str):
     assert isinstance(feature_kwargs['name'], str), "If func is singular, name must be as well"
     return add_feature_from_pois(gdf, pois, larger_gdf, **feature_kwargs)
@@ -71,7 +89,19 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
                                               pois_keys, features,
                                               logging=False):
   """
-  TODO: docs
+  Returns a pandas dataframe ... TODO TODO
+
+  :param latitude, longitude   geoposition around which to build dataset
+  :param date                  integer specifying year around which data is fetched
+  :param property_type         a valid property type in pp_data
+  :param bb_size_km            size of the sides of the geographical bounding box in
+                               which prices_coordinates data is fetched
+  :param pois_bb_size_km       size of the side of the bounding box in which
+                               which OSM data is fetched
+  :param year_range_size       temporal bounding box, specified as integer indicating number of years
+  :param pois_keys             OSMNX POIs keys to use when fetching POIs. These keys must be a superset
+                               of the keys mentioned in any of the features
+  :param features              A list of feature specifications @see add_feature_from_pois
   """
 
   if logging:
@@ -100,20 +130,21 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
     print(f"The cache key {cache_key_sql} is in cache, skipping SQL query...")
   prices_coordinates_gdf = build_prices_coordinates_features_dataset.cache[cache_key_sql]
 
-  # filter out properties of different types
+  # filter out properties of different types, unless that would give too little data
   if len(prices_coordinates_gdf[prices_coordinates_gdf['property_type'] == property_type]) > 100:
     print(f"Found enough properties of type {property_type}. Filtering out other types for predictions...")
     prices_coordinates_gdf = prices_coordinates_gdf[prices_coordinates_gdf['property_type'] == property_type]
     print(f"Which leaves {len(prices_coordinates_gdf)} rows of property type {property_type}")
   else:
     print("Did not find enough properties of appropriate type. Using all types...")
+    print("WARNING: This will likely cause the prediction to be very inaccurate!")
 
   # if no data is found, we must fail
   if len(prices_coordinates_gdf) == 0:
     return None, None, None
 
   if logging:
-    print(f"Found {len(prices_coordinates_gdf)} prices_coordinate rows")
+    print(f"Using {len(prices_coordinates_gdf)} prices_coordinate rows")
 
   # Fetch prices_coordinate rows that is used for num_houses feature and
   #   cache SQL query for location and date range, so can be reused later
@@ -127,6 +158,8 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
   # we look at number of houses sold within some dist of houses in our dataset,
   #   so we need an extra dataset of houses sold which cover a larger region
   if houses_dist > 0:
+    # Fetch prices_coordinates rows for larger range and put result in larger_prices_gdf, and
+    #   use caching to speed up computation time
     cache_key_sql = ("prices_coordinates", latitude, longitude, date, bb_size_km + houses_dist, year_range_size)
     bb_larger_half_size = km_to_crs(bb_size_km + houses_dist)
     if cache_key_sql not in build_prices_coordinates_features_dataset.cache:
@@ -158,36 +191,24 @@ def build_prices_coordinates_features_dataset(latitude, longitude, date,
 
   # The osmx API will not add column for specified key if it doesn't find any
   #   entities of that type, so we need to add it explicitly and fill it with NaNs
-  #   to avoid ValueErrors later down the line
+  #   to avoid ValueErrors later down the line when adding features
   for k in pois_keys:
     if k not in pois.columns:
       pois[k] = np.nan
   # print(pois.to_string()[0:10000000])
 
-
   # fail if nothing found
   if len(pois) == 0:
-    return prices_coordinates_gdf, None, larger_prices_gdf
+    return None, None, None
 
   if logging:
     print(f"Found {len(pois)} POIs in the area")
 
   # add the features
   for f in features:
-    if (f['func'] == 'num_houses' or f['func'] == 'num_houses') and len(prices_coordinates_gdf) > 1800:
+    if (f['func'] == 'num_houses' or f['func'] == ['num_houses']) and len(prices_coordinates_gdf) > 1800:
       print(f"There was a lot of data entries found ({len(prices_coordinates_gdf)}). "
         + "Considering removing the feature num_houses to speed up computation")
-    # if isinstance(f['name'], str):
-    #   prices_coordinates_gdf[f['name']] = 0
-    # else:
-    #   prices_coordinates_gdf[f['name'][0]] = 0
-    # continue
-    # we don't cache features because it makes the add_feature_from_pois
-    #   utility functions to constrained as would need to return a series
-    # cache_key_f = (cache_key_sql, cache_key_osm, f['name'], f['func'], f['dist'])
-    # if cache_key_f not in build_prices_coordinates_features_dataset.cache:
-    #   build_prices_coordinates_features_dataset.cache[cache_key_f] = \
-    #     add_feature_from_pois(prices_coordinates_gdf, pois, larger_prices_gdf, **f)
 
     # Add a new column with name f['name'] using the values computed for the feature
     # prices_coordinates_gdf = prices_coordinates_gdf.assign(**{f['name']: build_prices_coordinates_features_dataset.cache[cache_key_f].to_numpy()})
@@ -306,11 +327,9 @@ def do_pca(design_matrix_fun, data_gdf, features):
   transformed_pca = pca.transform(X)
 
   # Print how much each feature contribute
-  i = 0
-  for f in features:
-    for name in f['name']:
-      var_ex = pca.explained_variance_ratio_[i]
-      print(f"Feature {name} explains {var_ex:.4} of the variance")
-      i += 1
+  for i, _ in enumerate(features):
+    var_ex = pca.explained_variance_ratio_[i]
+    var_name = pca.components_[i]
+    print(f"Feature {var_name} explains {var_ex:.4} of the variance")
 
 # vim: set shiftwidth=2 :

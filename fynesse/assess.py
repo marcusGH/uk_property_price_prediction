@@ -30,30 +30,6 @@ formats are correct and correctly timezoned."""
 ############################# Plotting utilities ###########################
 """
 
-def plot_housing_density_against_price_and_amt_data(gdf, loc, osm_accommodation_types):
-  lat, lon = access.config[loc]
-
-  pois = access.get_pois_around_point(lon, lat, 10, [], { "building": osm_accommodation_types})
-  print(f"Found {len(pois)} accommodations in {loc}")
-
-  fig, axs = plt.subplots(ncols=3,figsize=(30, 10))
-
-  fig.suptitle(f"Log-plot of housing price, houses sold, and accommodation density in {loc}", fontsize=24)
-
-  axs[0].set_title(f"House price", fontsize=16)
-  plot_geographical_heatmap(axs[0], gdf,
-                            'price', 50, useLog=True, transform='mean')
-
-  axs[1].set_title(f"Houses sold in {loc}", fontsize=16)
-  # value field doesn't matter when 'count' is used
-  plot_geographical_heatmap(axs[1], gdf,
-                            'postcode', 50, useLog=True, transform='count')
-
-  axs[2].set_title(f"Number of OSM accomoodations in {loc}", fontsize=16)
-  plot_geographical_heatmap(axs[2], pois, 'building', 50, 'count', useLog=True)
-
-  plt.show()
-
 def geoplot(title, figsize=(12,12)):
   fig, ax = plt.subplots(figsize=figsize)
   ax.set_xlabel("Longitude")
@@ -62,25 +38,34 @@ def geoplot(title, figsize=(12,12)):
   return fig, ax
 
 def plot_geographical_heatmap(ax, gdf, val, bins, transform='mean', useLog=False):
+  """
+  Plots a heatmap on axis ax, using aggregation function `transform` on column `val`
+  on entries in `gdf` after grouping these entries into bins
+  by longitude and latitude location.
+
+  If transform='count', the value of `val` doesn't matter, but it needs to be a valid
+  column.
+  """
   if 'geometry' not in gdf and ('longitude' not in gdf or 'latitude' not in gdf):
     raise Exception('The provided dataframe needs some column indicating positions')
 
+  # Don't want to modify argument
   gdf_copy = gpd.GeoDataFrame(gdf.copy(deep=True))
 
+  # Infer positions from geometry column
   if 'longitude' not in gdf_copy or 'latitude' not in gdf_copy:
     warnings.filterwarnings("ignore", message= ".*Geometry is in a geographic CRS.*")
     gdf_copy['longitude'] = gdf_copy.centroid.map(lambda p : p.x)
     gdf_copy['latitude'] = gdf_copy.centroid.map(lambda p : p.y)
 
-
   bin_size_x = (np.max(gdf_copy.longitude) - np.min(gdf_copy.longitude)) / bins
   bin_size_y = (np.max(gdf_copy.latitude) - np.min(gdf_copy.latitude))  / bins
 
-  # assign quantile ID, and then scale back up to get accurate ticks
+  # assign quantile ID (bin the entries), and then scale back up to get accurate ticks
   gdf_copy['bin_x'] =  (((gdf_copy['longitude']) / bin_size_x).astype(int).astype(float) * float(bin_size_x)).round(decimals=2)
   gdf_copy['bin_y'] =  (((gdf_copy['latitude']) / bin_size_y).astype(int).astype(float) * float(bin_size_y)).round(decimals=2)
 
-  # mean value of specified column
+  # Apply specified aggregation function
   gdf_copy['bin_value'] = gdf_copy.groupby(['bin_x', 'bin_y'])[val].transform(transform)
 
   piv = gdf_copy.drop_duplicates(subset=['bin_x', 'bin_y']).pivot(index='bin_y', columns='bin_x', values='bin_value')
@@ -92,7 +77,49 @@ def plot_geographical_heatmap(ax, gdf, val, bins, transform='mean', useLog=False
   ax.set_xlabel("Longitude")
   ax.set_ylabel("Latitude")
 
+def plot_housing_density_against_price_and_amt_data(gdf, loc, osm_accommodation_types):
+  """
+  Uses the plot_geographical_heatmap function to plot a heatmap of the density of houses sold
+  against the density of OSM accommodations.
+
+  :loc: a string that has a valid (latitude, longitude) tuple when accessed in the default.yaml config
+  :gdf: a geodataframe containing prices_coordinate data from the provided location `loc`
+  """
+  lat, lon = access.config[loc]
+
+  pois = access.get_pois_around_point(lon, lat, 10, [], { "building": osm_accommodation_types})
+  print(f"Found {len(pois)} accommodations in {loc}")
+
+  fig, axs = plt.subplots(ncols=3,figsize=(30, 10))
+
+  fig.suptitle(f"Log-plot of housing price, houses sold, and accommodation density in {loc}", fontsize=24)
+
+  axs[0].set_title(f"House price", fontsize=16)
+  plot_geographical_heatmap(axs[0], gdf,
+      'price', 50, useLog=True, transform='mean')
+
+  axs[1].set_title(f"Houses sold in {loc}", fontsize=16)
+  # value field doesn't matter when 'count' is used
+  plot_geographical_heatmap(axs[1], gdf,
+      'postcode', 50, useLog=True, transform='count')
+
+  axs[2].set_title(f"Number of OSM accomoodations in {loc}", fontsize=16)
+  plot_geographical_heatmap(axs[2], pois, 'building', 50, 'count', useLog=True)
+
+  plt.show()
+
 def plot_pois_around_area(longitude, latitude, dist_in_km, figName, keys):
+  """
+  Plots the OSM POIs around a bounding box of size dist_in_km kilometers around
+  specified location, giving a suptitle containing `figName`.
+
+  The `keys` is a dictionary of `k : v` pairs on the form
+
+    k : (a, b, c)
+
+  where `k : v` is a valid `osmnx` keys dictionary item, `a` is the colour to use
+  on the plot and `c` is the alpha to use on the plot.
+  """
   fig, ax = plt.subplots(figsize=(10,10))
   # get POIs from OSM
   pois_keys = { k : v for (k, (_, v, _)) in keys.items() }
@@ -115,7 +142,6 @@ def plot_pois_around_area(longitude, latitude, dist_in_km, figName, keys):
 
 def make_geodataframe(df):
   """
-
   When a geodataframe is saved to a CSV file, the 'geometry'
   and 'date' fields are not recovered properly when importing
   the file into a gpd.GeoDataFrame. This function fixes

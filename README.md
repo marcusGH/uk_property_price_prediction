@@ -2,11 +2,11 @@
 
 1. [Access](#Access)
     1. [Database setup](#Database-setup)
-    2. [General utility functions](#General-utility-functions)
-    3. [Database queries](#Database-queries)
-    4. [Schema setup](#Schema-setup)
-    5. [Data import](#Data-import)
-    6. [OSM access utilities](#OSM-access-utilities)
+    2. [Database queries](#Database-queries)
+    3. [Schema setup](#Schema-setup)
+    4. [Data import](#Data-import)
+    5. [OSM access utilities](#OSM-access-utilities)
+    6. [General utility functions](#General-utility-functions)
 2. [Assess](#Assess)
     1. [Visualisation utilities](#Visualisation-utilities)
     2. [Sanitsation](#Sanitsation)
@@ -25,14 +25,6 @@ As such, the functions in this repo is organised into three sections: _Access_, 
 
 ## Access
 
-The functions `access.py` are split into the following sections:
-
-1. [Database setup](###Database-setup)
-2. [Database queries](###Database-queries)
-3. [Schema setup](###Schema-setup)
-4. [Data import](###Data-import)
-5. [OSM access utilities](###OSM-access-utilities)
-
 ### Database setup
 
 * `get_and_store_credentials()`
@@ -44,42 +36,16 @@ These functions handle everything from interactively connecting to
 the database to getting a `PyMySQL` connection object for doing
 queries to it.
 
-We create a utility function that sets up the appropriate schema for `pp_data`,
-using our `db_query` utility function. 
-
 Throughout _accessing_ data from our tables, we will do a lot of database
 queries and it's more suitable to do this with the `PyMySQL` API than through
-magic line commands because this allows more flexibility. We also create a new
-connection each time we do a query such that we don't need to pass a connection
-object around everywhere. Additionally, our `db_query` and `db_select`
-functions allow manually interrupting the SQL query if it takes an unexpected
-long time to complete, and safely closing the connection such that future
-queries are not affected.
+magic line commands because this allows more flexibility. For example, we can
+interrupt the query manually if we see it is taking forever, without leaving a
+connection open. We also create a new connection each time we do a query such
+that we don't need to pass a connection object around everywhere. Additionally,
+our `db_query` and `db_select` functions allow manually interrupting the SQL
+query if it takes an unexpected long time to complete, and safely closing the
+connection such that future queries are not affected.
 
-We will likely use the `SELECT ... ` SQL command that does this relatively often, and we may want to extend this query with custom conditions or limitations, like ` ... LIMIT 10` or ` ... WHERE town_city = 'Cambridge'` (Note that some conditions have been included as options like `minYear`). 
-
-The utility function for joining on the fly thus just returns a SQL query string that can optionally extend and then pass onto `db_select` to actually perform the query and get a pandas dataframe.
-
-
-
-### General utility functions
-
-* `km_to_crs(dist_km, latitude=53.71, longitude=-2.03)`
-* `crs_to_km(dist_crs)`
-* `flatten(coll)`
-* `point_to_bounding_box(longitude, latitude, size)`
-
-These functions do not really belong in the Fynesse framework,
-but they are procedures I found myself repeating very often
-all the way from the access phase to the address phase, so I
-put them in `access.py`.
-
-The `crs` and `km` conversion functions translates between distances
-specified in number of `EPSG:4326` degrees and number of kilometres.
-**Note:** these functions have some inaccuracies since they don't take
-into account the latitude of the location where the translation
-happens. Instead, they assume the translation is happening at the
-equator.
 
 ### Database queries
 
@@ -91,18 +57,28 @@ equator.
 The `db_query` and `db_select` functions are abstraction of the process of
 getting a database connection, running the query, and then closing the
 connection. They also handles `KeyboardInterrupt`s nicely. The former
-is used to make changes and the latter is for fetching dataframes.
+is used to make changes and the latter is for fetching data
+using `SELECT` statements and return the result as a pandas dataframe.
 
-The last two functions are for joining the `pp_data` and `postcode_data`
-tables on the fly, and they return a dataframe with columns as specified
-in the joined schema listed in _Task D._
+The last two functions are for joining the `pp_data` and `postcode_data` tables
+on the fly, and the last one return a dataframe with columns as specified in
+the joined schema listed in _Task D._ The `inner_join_sql_query` is just for
+getting the query string, because we may want to modify this slightly by e.g.
+adding additional conditions. For example:
+
+    db_select(inner_join_sql_query(...) + " AND country = 'England'")
 
 **Note:** The last function is an artefact of me waiting long periods of
 time for AWS to finish its queries, so it's a less flexible version
 of `db_select(inner_join_sql_query(...))` optimised for amortized speed
 using caching.
 
-_All of these functions seem appropriate for putting in "assess" as they can extract subsets of the accessible data that is interesting to user, and put it into pandas dataframes which are nice to work with. However, this process of putting some of the data into pandas dataframe is also a way of making the data accessible in the notebook. As a result, it's not clear which phase they belong to._
+_All of these functions seem appropriate for putting in "assess" as they can
+extract subsets of the accessible data that is interesting to user, and put it
+into pandas dataframes which are nice to work with. However, this process of
+putting some of the data into pandas dataframe is also a way of making the data
+accessible in the notebook. As a result, it's not clear which phase they belong
+to._
 
 ### Schema setup
 
@@ -121,7 +97,7 @@ with the schemas specified for `pp_data` and `postcode_data`.
 
 These functions are used for loading `.csv` files from URLs
 into the created database tables, more specifically the
-`pp_data` and `postcode_data`.
+`pp_data` and `postcode_data` tables.
 
 ### OSM access utilities
 
@@ -130,9 +106,32 @@ into the created database tables, more specifically the
     a GeoDataFrame of the POIs found on OSM within this bounding box for the
     specified keys and/or tags.
 * `get_pois_with_amenity_value(longitude, latitude, dist_in_km, amenities)`
-  * This function has similar functionality, but finds POI with key `amenity`
+  * This function has similar functionality, but finds POI with key `amenity` equal to any value
+    listed in `amenities`
 
-## Assess.py
+These were implemented using `osmnx`'s `geometries_from_bbox` API call.
+
+### General utility functions
+
+* `km_to_crs(dist_km, latitude=53.71, longitude=-2.03)`
+* `crs_to_km(dist_crs)`
+* `flatten(coll)`
+* `point_to_bounding_box(longitude, latitude, size)`
+
+These functions do not really belong in the Fynesse framework,
+but they are procedures I found myself repeating very often
+all the way from the access phase to the address phase, so I
+put them in `access.py`.
+
+The `crs` and `km` conversion functions translates between distances
+specified in number of `EPSG:4326` degrees and number of kilometres.
+**Note:** these functions have some inaccuracies since they don't take
+into account the latitude of the location where the translation
+happens. Instead, they assume the translation is happening at the
+equator. I decided not to fix this because it would require major
+refactoring and the inaccuracies were only minor.
+
+## Assess
 
 ### Visualisation utilities
 
@@ -149,6 +148,13 @@ geographical area or for plotting heatmaps with specified aggregation functions.
 
 The last two are for getting `lambda`s that can be passed to `DataFrame.corr().style.apply`
 to better visualise feature correlation.
+
+For the heatmap visualisation function, I start by creating a square grid of bins,
+and then place each of the rows in `gdf` in a bin
+based on their `Point` or centroid location. I then group together the entries in the same
+x and y bins and run specified `transform` function on it, using column `val`.
+If `transform='count'`, the heatmap will visualise the number of each entry located in
+each square bin.
 
 ### Sanitsation
 
@@ -188,11 +194,13 @@ my dataframes with aggregation data that is useful when evaluating how
 suitable a feature is for a specific problem, and the utility functions can give
 aggregation data that can be used to decide on features for many other problems that other people may address as well
 
-## Address.py
+## Address
 
 Below I give an example of adding a column with the number of houses being sold within a 1km radius, for houses in 4𝑘𝑚2 area around Cambridge (interestingly, the get_num_pois_within_radius, that was initially built to a different purpose, can be reused for this computation):
 
 wider_gdf ....
+
+TODO: explain how build works and why we need the larger_gdf and pass it around etc.. to predict_price
 
 ### Adding features
 
