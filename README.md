@@ -186,13 +186,9 @@ The last three functions all use `_add_spatial_aggregate_column` which works as 
 
 When programming this, I also realised how similar
 counting the number of POIs within an area and finding the closest POI
-within that area are, so there's another hidden utility function which
-handles the aggregation done in the most general way: `_add_spatial_aggregate_column`.
+within that area are, so that's why I abstracted away this procedure
+in the most general way in `_add_spational_aggregate_column`
 
-I have added these utility function in _Address_ because they enrich
-my dataframes with aggregation data that is useful when evaluating how
-suitable a feature is for a specific problem, and the utility functions can give
-aggregation data that can be used to decide on features for many other problems that other people may address as well
 
 ## Address
 
@@ -223,7 +219,7 @@ the rest of the arguments onto the relevant pois aggregation function.
 * `predict_price_simple(latitude, longitude, date, property_type)`
 
 The first function fetches all the relevant `prices_coordinates` data and adds a new column
-to the dataframe for each of the specified features. This function is encapsulated in
+to the dataframe for each of the specified features. This function is called in
 the `predict_price` function and the arguments to it are encoded in the `build_dataset_kwargs` parameter.
 I abstracted away the process of building the dataset with all the features because I found it useful
 to just build such a dataframe, without doing price predictions, for other tasks done in the notebook.
@@ -256,8 +252,9 @@ matrix, this is the more accessible function.
 
 ### Dimensionality reduction
 
-* `do_pca(design_matrix_fun, data_gdf, features)`
+* `do_pca(design_matrix_fun, data_gdf, features, ncomponents=4)`
 
-This function takes a design matrix a dataset with already evaluated features and
+This function takes a design matrix, a dataset with already evaluated features and
 a list of features. It then does PCA on these features and reports how much of the
-variance in the data each feature describes.
+variance in the data each of the top `ncomponents` prinicpal components
+describes, and which feature has the largest coefficient in each PC.
