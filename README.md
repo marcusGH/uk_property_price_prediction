@@ -1,4 +1,23 @@
-# Fynesse
+# Predicting UK property prices with generalised linear models
+
+This project was done as part of the [Advanced Data Science](https://www.cl.cam.ac.uk/teaching/2122/ADS/) course at the University of Cambridge.
+The task was to predict the value of a property, given a `(longitude, latitude)` tuple, a date, and a house type. This was done using a generalised linear model,
+fitted on UK [Price Paid Data](https://www.gov.uk/government/statistical-data-sets/price-paid-data-downloads), using OpenStreetMap to create additional useful features.
+A discussion of the results, justification of feature selection and model parameters, etc. can be found in
+[this notebook](notebooks/uk_price_prediction.ipynb) which documents the whole project.
+Several utility functions were written to aide the process, all of which are outlined in the [Repository overview](#repository-overview).
+
+Marks out of 50 (and feedback received from examiners):
+<a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
+<blockquote>
+  <br>
+    <p align="right" opacity="30%">Reveal spoiler&nbsp;&nbsp;<img align="top" width="30px" src="https://upload.wikimedia.org/wikipedia/commons/2/23/Warning_circle_exclamation_mark.png"></p>
+  <br>
+</blockquote>
+</a>
+
+# Repository Overview
+
 
 1. [Access](#Access)
     1. [Database setup](#Database-setup)
