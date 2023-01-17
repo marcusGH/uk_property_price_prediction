@@ -9,11 +9,7 @@ Several utility functions were written to aide the process, all of which are out
 
 Marks out of 50 (and feedback received from examiners):
 <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ">
-<blockquote>
-  <br>
-    <p align="right" opacity="30%">Reveal spoiler&nbsp;&nbsp;<img align="top" width="30px" src="https://upload.wikimedia.org/wikipedia/commons/2/23/Warning_circle_exclamation_mark.png"></p>
-  <br>
-</blockquote>
+<img src="https://user-images.githubusercontent.com/29378769/213016411-3fd4e973-202c-41bd-9b9f-74220847d14e.png"/>
 </a>
 
 # Repository Overview
